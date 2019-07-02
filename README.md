@@ -44,6 +44,9 @@ use cases with the hardware models and then
 experiment with software architectures to
 control these models in-system.
 
+The dependencies required to run these simulations
+may be found in the requirements.txt file.
+
 The hardware models are described in the **hdl**
 sub-directory of the project.  These will be
 described in a separate section of this README.
