@@ -481,7 +481,7 @@ if __name__ == '__main__':
     cr = [Signal(bool(0)) for _ in range(6)]
     sr = [Signal(bool(0)) for _ in range(5)]
     clock = Signal(bool(0))
-    reset_n = ResetSignal(1, active=0, async=True)
+    reset_n = ResetSignal(1, active=0, isasync=True)
     power_usage = Signal(intbv(0, min=0, max=101))
     thermal = Signal(intbv(0, min=0, max=101))
 
