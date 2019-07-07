@@ -69,8 +69,8 @@ class simulatedmbist:
         :param power_usage_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% power usage
                 that changes over time depending on the operation being performed.  The power monitor would
                 monitor this value and report how much total power in the system is being used.
-        :param thermal_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% themal usage
-                that changes over time depending on the operation being performed.  The tempurature monitor
+        :param thermal_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% thermal usage
+                that changes over time depending on the operation being performed.  The temperature monitor
                 would monitor this value and report the temperature the system is producing.
         :param initialize_delay: Keyword argument to specify the number of clock ticks to spin in initialize state
         :param test_delay: Keyword argument to specify the number of clock ticks to spin in the test state
