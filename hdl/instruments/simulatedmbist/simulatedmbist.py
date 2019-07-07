@@ -53,19 +53,22 @@ class simulatedmbist:
         :param name: String containing the instance name to be printed in diagnostic messages
         :param clock: Clock signal used to change state and tick the delay times for delay states
         :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
-        :param control_register[0:6]: Parallel register to control the operation of the instrument
-                Bit0: 1=Start the BIST operation, 0=Stop the BIST operation and abort
-                Bit1: 1=Inject error during test_delay state, 0=Do not inject error during test_delay state
-                Bit2: 1=Inject error during analyze_delay state, 0=Do not inject error during analyze_delay state
-                Bit3: 1=Double the initialize_delay time to use at start, 0=Use the specified initialize_delay
-                Bit4: 1=Double the test_delay time to use at start, 0=Use the specified test_delay
-                Bit5: 1=Double the analyze_delay time to use at start, 0=Use the specified analyze_delay
-        :param status_register[0:5]: Parallel register to publish the status of the instrument operation
+        :param control_register[0:7]: Parallel register to control the operation of the instrument
+                Bit0: 1=Start the BIST operation, 0=NOP for status scans
+                Bit1: 1=Stop the BIST operation and abort, 0=Do not abort the test
+                Bit2: 1=Inject error during test_delay state, 0=Do not inject error during test_delay state
+                Bit3: 1=Inject error during analyze_delay state, 0=Do not inject error during analyze_delay state
+                Bit4: 1=Double the initialize_delay time to use at start, 0=Use the specified initialize_delay
+                Bit5: 1=Double the test_delay time to use at start, 0=Use the specified test_delay
+                Bit6: 1=Double the analyze_delay time to use at start, 0=Use the specified analyze_delay
+        :param status_register[0:7]: Parallel register to publish the status of the instrument operation
                 Bit0: 1=Test passed, 0=Test failed
                 Bit1: 1=MBIST test is running, 0=MBIST test is not running
                 Bit2: 1=Test aborted due to unknown error, 0=Test did not abort
                 Bit3: 1=Error during test state detected, 0=No error detected during test state
                 Bit4: 1=Error during analyze state detected, 0=No error detected during analyze state
+                Bit5: Reserved.  Added so status_register can be capture register and control_register as update
+                Bit6: Reserved.  Added so status_register can be capture register and control_register as update
         :param power_usage_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% power usage
                 that changes over time depending on the operation being performed.  The power monitor would
                 monitor this value and report how much total power in the system is being used.
@@ -140,12 +143,15 @@ class simulatedmbist:
                 self.status_register[2].next = bool(0)
                 self.status_register[3].next = bool(0)
                 self.status_register[4].next = bool(0)
+                self.status_register[5].next = bool(0)
+                self.status_register[6].next = bool(0)
                 self.control_register[0].next = bool(0)
                 self.control_register[1].next = bool(0)
                 self.control_register[2].next = bool(0)
                 self.control_register[3].next = bool(0)
                 self.control_register[4].next = bool(0)
                 self.control_register[5].next = bool(0)
+                self.control_register[6].next = bool(0)
                 self.id_count.next = 0
                 self.td_count.next = 0
                 self.ad_count.next = 0
@@ -156,13 +162,14 @@ class simulatedmbist:
             else:
                 if self.state == t_State.IDLE:
                     if self.control_register[0] == bool(1):
+                        # Control bit to start BIST has been set
                         self.status_register[0].next = bool(0)
                         self.state.next = t_State.START
                         self.power_usage_register.next = START_POWER
                         self.thermal_register.next = START_TEMP
 
                 elif self.state == t_State.START:
-                    if self.control_register[0] == bool(0):  # Abort
+                    if self.control_register[1] == bool(1):  # Abort
                         # self.__set_status_register(intbv('00100'))
                         # self.__set_control_register(intbv('000000'))
                         self.status_register[0].next = bool(0)
@@ -170,20 +177,25 @@ class simulatedmbist:
                         self.status_register[2].next = bool(1)
                         self.status_register[3].next = bool(0)
                         self.status_register[4].next = bool(0)
+                        self.status_register[5].next = bool(0)
+                        self.status_register[6].next = bool(0)
                         self.control_register[0].next = bool(0)
                         self.control_register[1].next = bool(0)
                         self.control_register[2].next = bool(0)
                         self.control_register[3].next = bool(0)
                         self.control_register[4].next = bool(0)
                         self.control_register[5].next = bool(0)
+                        self.control_register[6].next = bool(0)
                         self.state.next = t_State.IDLE
                         self.power_usage_register.next = IDLE_POWER
                         self.thermal_register.next = IDLE_TEMP
                     else:
                         self.state.next = t_State.INITIALIZE
+                        # Turn off control start bit now that BIST started
+                        self.control_register[0].next = bool(0)
 
                 elif self.state == t_State.INITIALIZE:
-                    if self.control_register[0] == bool(0):  # Abort
+                    if self.control_register[1] == bool(1):  # Abort
                         # self.__set_status_register(intbv('00100'))
                         # self.__set_control_register(intbv('000000'))
                         self.status_register[0].next = bool(0)
@@ -191,17 +203,20 @@ class simulatedmbist:
                         self.status_register[2].next = bool(1)
                         self.status_register[3].next = bool(0)
                         self.status_register[4].next = bool(0)
+                        self.status_register[5].next = bool(0)
+                        self.status_register[6].next = bool(0)
                         self.control_register[0].next = bool(0)
                         self.control_register[1].next = bool(0)
                         self.control_register[2].next = bool(0)
                         self.control_register[3].next = bool(0)
                         self.control_register[4].next = bool(0)
                         self.control_register[5].next = bool(0)
+                        self.control_register[6].next = bool(0)
                         self.state.next = t_State.IDLE
                         self.power_usage_register.next = IDLE_POWER
                         self.thermal_register.next = IDLE_TEMP
                     else:
-                        if self.control_register[3] == bool(1):
+                        if self.control_register[4] == bool(1):
                             self.id_count.next = self.initialize_delay + self.initialize_delay
                         else:
                             self.id_count.next = self.initialize_delay
@@ -210,7 +225,7 @@ class simulatedmbist:
                         self.thermal_register.next = INIT_TEMP
 
                 elif self.state == t_State.INITIALIZE_DELAY:
-                    if self.control_register[0] == bool(0):  # Abort
+                    if self.control_register[1] == bool(1):  # Abort
                         # self.__set_status_register(intbv('00100'))
                         # self.__set_control_register(intbv('000000'))
                         self.status_register[0].next = bool(0)
@@ -218,12 +233,15 @@ class simulatedmbist:
                         self.status_register[2].next = bool(1)
                         self.status_register[3].next = bool(0)
                         self.status_register[4].next = bool(0)
+                        self.status_register[5].next = bool(0)
+                        self.status_register[6].next = bool(0)
                         self.control_register[0].next = bool(0)
                         self.control_register[1].next = bool(0)
                         self.control_register[2].next = bool(0)
                         self.control_register[3].next = bool(0)
                         self.control_register[4].next = bool(0)
                         self.control_register[5].next = bool(0)
+                        self.control_register[6].next = bool(0)
                         self.state.next = t_State.IDLE
                         self.power_usage_register.next = IDLE_POWER
                         self.thermal_register.next = IDLE_TEMP
@@ -234,7 +252,7 @@ class simulatedmbist:
                             self.state.next = t_State.TEST
 
                 elif self.state == t_State.TEST:
-                    if self.control_register[0] == bool(0):  # Abort
+                    if self.control_register[1] == bool(1):  # Abort
                         # self.__set_status_register(intbv('00100'))
                         # self.__set_control_register(intbv('000000'))
                         self.status_register[0].next = bool(0)
@@ -242,17 +260,20 @@ class simulatedmbist:
                         self.status_register[2].next = bool(1)
                         self.status_register[3].next = bool(0)
                         self.status_register[4].next = bool(0)
+                        self.status_register[5].next = bool(0)
+                        self.status_register[6].next = bool(0)
                         self.control_register[0].next = bool(0)
                         self.control_register[1].next = bool(0)
                         self.control_register[2].next = bool(0)
                         self.control_register[3].next = bool(0)
                         self.control_register[4].next = bool(0)
                         self.control_register[5].next = bool(0)
+                        self.control_register[6].next = bool(0)
                         self.state.next = t_State.IDLE
                         self.power_usage_register.next = IDLE_POWER
                         self.thermal_register.next = IDLE_TEMP
                     else:
-                        if self.control_register[4] == bool(1):
+                        if self.control_register[5] == bool(1):
                             self.td_count.next = self.test_delay + self.test_delay
                         else:
                             self.td_count.next = self.test_delay
@@ -261,7 +282,7 @@ class simulatedmbist:
                         self.thermal_register.next = TEST_TEMP
 
                 elif self.state == t_State.TEST_DELAY:
-                    if self.control_register[0] == bool(0):  # Abort
+                    if self.control_register[1] == bool(1):  # Abort
                         # self.__set_status_register(intbv('00100'))
                         # self.__set_control_register(intbv('000000'))
                         self.status_register[0].next = bool(0)
@@ -269,18 +290,21 @@ class simulatedmbist:
                         self.status_register[2].next = bool(1)
                         self.status_register[3].next = bool(0)
                         self.status_register[4].next = bool(0)
+                        self.status_register[5].next = bool(0)
+                        self.status_register[6].next = bool(0)
                         self.control_register[0].next = bool(0)
                         self.control_register[1].next = bool(0)
                         self.control_register[2].next = bool(0)
                         self.control_register[3].next = bool(0)
                         self.control_register[4].next = bool(0)
                         self.control_register[5].next = bool(0)
+                        self.control_register[6].next = bool(0)
                         self.state.next = t_State.IDLE
                         self.power_usage_register.next = IDLE_POWER
                         self.thermal_register.next = IDLE_TEMP
                     else:
                         if self.td_count > 0:
-                            if self.control_register[1] == bool(1):
+                            if self.control_register[2] == bool(1):
                                 if self.td_count == 1:
                                     # Introduce error from TEST_DELAY state
                                     # self.__set_status_register(intbv('00010'))
@@ -289,6 +313,8 @@ class simulatedmbist:
                                     self.status_register[2].next = bool(0)
                                     self.status_register[3].next = bool(1)
                                     self.status_register[4].next = bool(0)
+                                    self.status_register[5].next = bool(0)
+                                    self.status_register[6].next = bool(0)
                                     self.state.next = t_State.IDLE
                                     self.power_usage_register.next = IDLE_POWER
                                     self.thermal_register.next = IDLE_TEMP
@@ -300,7 +326,7 @@ class simulatedmbist:
                             self.state.next = t_State.ANALYZE
 
                 elif self.state == t_State.ANALYZE:
-                    if self.control_register[0] == bool(0):  # Abort
+                    if self.control_register[1] == bool(1):  # Abort
                         # self.__set_status_register(intbv('00100'))
                         # self.__set_control_register(intbv('000000'))
                         self.status_register[0].next = bool(0)
@@ -308,17 +334,20 @@ class simulatedmbist:
                         self.status_register[2].next = bool(1)
                         self.status_register[3].next = bool(0)
                         self.status_register[4].next = bool(0)
+                        self.status_register[5].next = bool(0)
+                        self.status_register[6].next = bool(0)
                         self.control_register[0].next = bool(0)
                         self.control_register[1].next = bool(0)
                         self.control_register[2].next = bool(0)
                         self.control_register[3].next = bool(0)
                         self.control_register[4].next = bool(0)
                         self.control_register[5].next = bool(0)
+                        self.control_register[6].next = bool(0)
                         self.state.next = t_State.IDLE
                         self.power_usage_register.next = IDLE_POWER
                         self.thermal_register.next = IDLE_TEMP
                     else:
-                        if self.control_register[5] == bool(1):
+                        if self.control_register[6] == bool(1):
                             self.ad_count.next = self.analyze_delay + self.analyze_delay
                         else:
                             self.ad_count.next = self.analyze_delay
@@ -327,7 +356,7 @@ class simulatedmbist:
                         self.thermal_register.next = ANALYZE_TEMP
 
                 elif self.state == t_State.ANALYZE_DELAY:
-                    if self.control_register[0] == bool(0):  # Abort
+                    if self.control_register[1] == bool(1):  # Abort
                         # self.__set_status_register(intbv('00100'))
                         # self.__set_control_register(intbv('000000'))
                         self.status_register[0].next = bool(0)
@@ -335,19 +364,22 @@ class simulatedmbist:
                         self.status_register[2].next = bool(1)
                         self.status_register[3].next = bool(0)
                         self.status_register[4].next = bool(0)
+                        self.status_register[5].next = bool(0)
+                        self.status_register[6].next = bool(0)
                         self.control_register[0].next = bool(0)
                         self.control_register[1].next = bool(0)
                         self.control_register[2].next = bool(0)
                         self.control_register[3].next = bool(0)
                         self.control_register[4].next = bool(0)
                         self.control_register[5].next = bool(0)
+                        self.control_register[6].next = bool(0)
 
                         self.state.next = t_State.IDLE
                         self.power_usage_register.next = IDLE_POWER
                         self.thermal_register.next = IDLE_TEMP
                     else:
                         if self.ad_count > 0:
-                            if self.control_register[2] == bool(1):
+                            if self.control_register[3] == bool(1):
                                 if self.ad_count == 1:
                                     # Introduce error from TEST_DELAY state
                                     # self.__set_status_register(intbv('00001'))
@@ -356,6 +388,8 @@ class simulatedmbist:
                                     self.status_register[2].next = bool(0)
                                     self.status_register[3].next = bool(0)
                                     self.status_register[4].next = bool(1)
+                                    self.status_register[5].next = bool(0)
+                                    self.status_register[6].next = bool(0)
                                     self.state.next = t_State.IDLE
                                     self.power_usage_register.next = IDLE_POWER
                                     self.thermal_register.next = IDLE_TEMP
@@ -371,12 +405,15 @@ class simulatedmbist:
                             self.status_register[2].next = bool(0)
                             self.status_register[3].next = bool(0)
                             self.status_register[4].next = bool(0)
+                            self.status_register[5].next = bool(0)
+                            self.status_register[6].next = bool(0)
                             self.control_register[0].next = bool(0)
                             self.control_register[1].next = bool(0)
                             self.control_register[2].next = bool(0)
                             self.control_register[3].next = bool(0)
                             self.control_register[4].next = bool(0)
                             self.control_register[5].next = bool(0)
+                            self.control_register[6].next = bool(0)
                             self.state.next = t_State.IDLE
                             self.power_usage_register.next = IDLE_POWER
                             self.thermal_register.next = IDLE_TEMP

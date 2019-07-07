@@ -213,19 +213,22 @@ class simulatedmbist:
         :param name: String containing the instance name to be printed in diagnostic messages
         :param clock: Clock signal used to change state and tick the delay times for delay states
         :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
-        :param control_register[0:6]: Parallel register to control the operation of the instrument
-                Bit0: 1=Start the BIST operation, 0=Stop the BIST operation and abort
-                Bit1: 1=Inject error during test_delay state, 0=Do not inject error during test_delay state
-                Bit2: 1=Inject error during analyze_delay state, 0=Do not inject error during analyze_delay state
-                Bit3: 1=Double the initialize_delay time to use at start, 0=Use the specified initialize_delay
-                Bit4: 1=Double the test_delay time to use at start, 0=Use the specified test_delay
-                Bit5: 1=Double the analyze_delay time to use at start, 0=Use the specified analyze_delay
-        :param status_register[0:5]: Parallel register to publish the status of the instrument operation
+        :param control_register[0:7]: Parallel register to control the operation of the instrument
+                Bit0: 1=Start the BIST operation, 0=NOP for status scans
+                Bit1: 1=Stop the BIST operation and abort, 0=Do not abort the test
+                Bit2: 1=Inject error during test_delay state, 0=Do not inject error during test_delay state
+                Bit3: 1=Inject error during analyze_delay state, 0=Do not inject error during analyze_delay state
+                Bit4: 1=Double the initialize_delay time to use at start, 0=Use the specified initialize_delay
+                Bit5: 1=Double the test_delay time to use at start, 0=Use the specified test_delay
+                Bit6: 1=Double the analyze_delay time to use at start, 0=Use the specified analyze_delay
+        :param status_register[0:7]: Parallel register to publish the status of the instrument operation
                 Bit0: 1=Test passed, 0=Test failed
                 Bit1: 1=MBIST test is running, 0=MBIST test is not running
                 Bit2: 1=Test aborted due to unknown error, 0=Test did not abort
                 Bit3: 1=Error during test state detected, 0=No error detected during test state
                 Bit4: 1=Error during analyze state detected, 0=No error detected during analyze state
+                Bit5: Reserved.  Added so status_register can be capture register and control_register as update
+                Bit6: Reserved.  Added so status_register can be capture register and control_register as update
         :param power_usage_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% power usage
                 that changes over time depending on the operation being performed.  The power monitor would
                 monitor this value and report how much total power in the system is being used.
