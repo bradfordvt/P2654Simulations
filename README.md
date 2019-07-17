@@ -176,6 +176,222 @@ tools.
 Top level entity the software would connect
 to via register access from a memory mapped bus
 like Wishbone or AXI4.  This is a WIP module.
+##### *JTAGCtrlMaster*
+This class is a JTAG host block adapted from the OpenCores.org
+jtag_master project that was originally implemented in VHDL.
+Some logic had to be changed due to multiple driver errors
+detected by the conversion audits when converting the myHDL
+to Verilog or VHDL.  In the JTAG_Ctrl_Master.py file there are some
+utility methods for test benches that provide for performing
+ScanIR and ScanDR operations over the JTAG interface to a client
+DUT.  The TDI and TDO vectors for these methods are arrays of
+integers whose size must be less than 2**data_width defined
+for the instance.  The design uses a Block RAM for storing the
+vector data and capturing the responses in the same buffer
+by overwriting the scanned out bits with the capture bits
+during the scan process.  The interface to the instrument
+uses a synchronous clock to latch the data written to the
+memory data bus as well as command signals to start the
+scan.  The host software needs to define the the type of
+scan operation or use the provided utility methods.  Control
+of this instrument must be performed by a generator method
+running as part of the simulation (see the testbench method
+in JTAG_Ctrl_Master.py as an example).
+The interface code snippet may be found here:
+
+```python
+    def write_vector(self, addr, data):
+        """
+        Non-convertable code
+        This code is used to simplify writing of test benches
+        :param addr: Address of memory buffer to store the next segment of the vector into (size of data_width)
+        :param data: The contents to be written into the memory buffer of the master (size of data_width)
+        :return:
+        """
+        yield self.clk.negedge
+        self.addr.next = addr
+        self.din.next = data
+        self.wr.next = bool(1)
+        yield self.clk.posedge
+        yield self.clk.negedge
+        self.wr.next = bool(0)
+        yield self.clk.posedge
+        self.addr.next = 0
+
+    def read_vector(self, addr):
+        """
+        Non-convertable code
+        This code is used to simplify writing of test benches
+        :param addr: Address of memory buffer to fetch the next segment of the vector from (size of data_width)
+        :return:
+        """
+        yield self.clk.negedge
+        self.addr.next = addr
+        self.wr.next = bool(0)
+        yield self.clk.posedge
+        self.read_data.next = self.dout
+        yield self.clk.negedge
+        yield self.clk.posedge
+        self.addr.next = 0
+
+    def get_read_data(self):
+        """
+        Returns the value fetched by the read_vector call
+        :return:
+        """
+        return self.read_data
+
+    def scan_vector(self, tdi_vector, count, tdo_vector, start, end):
+        """
+        Scan the vector to the TAP with the IR data and capture the response in tdo_vector
+        :param tdi_vector: Array of integers for the data to be shifted out (tdi_vector[0] is first integer sent)
+        :param count: number of bits to shift
+        :param tdo_vector: Array of integers for the data to be captured into (tdo_vector[0] is first integer captured)
+        :param start: JTAGCtrlMaster.SHIFTIR or SHIFTDR
+        :param end: JTAGCtrlMaster.RUN_TEST_IDLE
+        :return:
+        """
+        # Fill the JTAGCtrlMaster data buffer memory with tdi data
+        num_full_words = int(count // self.data_width)
+        remainder = count % self.data_width
+        addr = intbv(0)[self.addr_width:]
+        for i in range(num_full_words):
+            data = intbv(tdi_vector[i])[self.data_width:]
+            yield self.write_vector(addr, data)
+            addr = addr + 1
+        # Now write out the remaining bits that may be a partial word in size, but a full word needs to be written
+        if remainder > 0:
+            data = intbv(tdi_vector[num_full_words])[self.data_width:]
+            yield self.write_vector(addr, data)
+        # Now start the scan operation
+        self.bit_count.next = intbv(count)[self.addr_width:]
+        self.shift_strobe.next = bool(1)
+        self.state_start.next = start
+        self.state_end.next = end
+        yield self.busy.posedge
+        self.shift_strobe.next = bool(0)
+        yield self.busy.negedge
+        # Scan completed, now fetch the captured data
+        addr = intbv(0)[self.addr_width:]
+        for i in range(num_full_words):
+            yield self.read_vector(addr)
+            data = self.get_read_data()
+            tdo_vector[i] = int(data)
+            addr = addr + 1
+        # Now read out the remaining bits that may be a partial word in size, but a full word needs to be read
+        if remainder > 0:
+            yield self.read_vector(addr)
+            data = self.get_read_data()
+            tdo_vector[num_full_words] = int(data)
+
+    def scan_ir(self, tdi_vector, count, tdo_vector):
+        """
+        Scan the vector to the TAP with the IR data and capture the response in tdo_vector
+        :param tdi_vector: Signal(intbv(0)[count:]) Data to be shifted out
+        :param count: number of bits to shift
+        :param tdo_vector: Signal(intbv(0)[count]) Data to be captured
+        :return:
+        """
+        start = JTAGCtrlMaster.SHIFT_IR
+        end = JTAGCtrlMaster.RUN_TEST_IDLE
+        yield self.scan_vector(tdi_vector, count, tdo_vector, start, end)
+
+    def scan_dr(self, tdi_vector, count, tdo_vector):
+        """
+        Scan the vector to the TAP with the DR data and capture the response in tdo_vector
+        :param tdi_vector: Signal(intbv(0)[count:]) Data to be shifted out
+        :param count: number of bits to shift
+        :param tdo_vector: Signal(intbv(0)[count]) Data to be captured
+        :return:
+        """
+        start = JTAGCtrlMaster.SHIFT_DR
+        end = JTAGCtrlMaster.RUN_TEST_IDLE
+        yield self.scan_vector(tdi_vector, count, tdo_vector, start, end)
+```
+
+The example test bench showing how to use these utility methods
+is shown below:
+
+```python
+    @staticmethod
+    @block
+    def testbench(monitor=False):
+        """
+        Test bench interface for a quick test of the operation of the design
+        :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+        :return: A list of generators for this logic
+        """
+        addr_width = 10
+        data_width = 8
+        clk = Signal(bool(0))
+        reset_n = ResetSignal(1, active=0, async=True)
+        # JTAG Part
+        bit_count = Signal(intbv(0)[16:])
+        shift_strobe = Signal(bool(0))
+        tdo = Signal(bool(0))
+        tck = Signal(bool(0))
+        tms = Signal(bool(0))
+        tdi = Signal(bool(0))
+        trst = Signal(bool(1))
+        busy = Signal(bool(0))
+        state_start = Signal(intbv(JTAGCtrlMaster.TEST_LOGIC_RESET)[4:])
+        state_end = Signal(intbv(JTAGCtrlMaster.TEST_LOGIC_RESET)[4:])
+        state_current = Signal(intbv(JTAGCtrlMaster.TEST_LOGIC_RESET)[4:])
+        # Ram Part
+        addr = Signal(intbv(0)[addr_width:])
+        wr = Signal(bool(0))
+        din = Signal(intbv(0)[data_width:])
+        dout = Signal(intbv(0)[data_width:])
+        ir_tdi_vector = [0x55, 0x19]
+        ir_tdo_vector = [0, 0]
+        dr_tdi_vector = [0xA5, 0x66]
+        dr_tdo_vector = [0, 0]
+        count = 15
+
+        jcm_inst = JTAGCtrlMaster('DEMO', 'JCM0',
+                                  clk,
+                                  reset_n,
+                                  bit_count, shift_strobe,
+                                  tdo, tck, tms, tdi, trst,
+                                  busy,
+                                  state_start, state_end, state_current,
+                                  addr, wr, din, dout,
+                                  addr_width=addr_width,
+                                  data_width=data_width)
+
+        @always(delay(10))
+        def clkgen():
+            clk.next = not clk
+
+        @always_seq(clk.posedge, reset=reset_n)
+        def loopback():
+            tdo.next = tdi
+
+        @instance
+        def stimulus():
+            """
+            Scan an IR followed by a scan of a DR
+            :return:
+            """
+            H = bool(1)
+            L = bool(0)
+            # Reset the instrument
+            reset_n.next = bool(0)
+            yield delay(2)
+            reset_n.next = bool(1)
+            yield delay(50)
+            # Scan the IR
+            yield jcm_inst.scan_ir(ir_tdi_vector, count, ir_tdo_vector)
+            print("ir_tdo_vector = ", ir_tdo_vector)
+            assert(ir_tdo_vector == [0x55, 0x19])  # Captured TDO value returned to ir_tdo_vector
+            yield jcm_inst.scan_dr(dr_tdi_vector, count, dr_tdo_vector)
+            print("dr_tdo_vector = ", dr_tdo_vector)
+            assert(dr_tdo_vector == [0xA5, 0x66])  # Captured TDO value returned to dr_tdo_vector
+            raise StopSimulation()
+
+        return jcm_inst.JTAGCtrlMaster_rtl(monitor=monitor), clkgen, stimulus, loopback
+```
+
 ##### *JTAGShiftBlock*
 This class describes the shift cycle hardware
 to read the values to be shifted out from a
