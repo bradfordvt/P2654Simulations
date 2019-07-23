@@ -112,6 +112,8 @@ class ScanRegister:
                     if i == 0:
                         self.isr[i].next = self.si
                         # logger.debug("\t\tsi = {:s}".format(bin(self.si)))
+                        if self.width == 1:
+                            self.so.next = self.isr[i]
                     elif i == self.width - 1:
                         # logger.debug("\t\tso = {:s}".format(bin(self.isr[i])))
                         self.so.next = self.isr[i]
@@ -140,7 +142,7 @@ class ScanRegister:
                 for i in range(self.width):
                     self.do[i].next = self.isr[i]
 
-        if monitor == False:
+        if not monitor:
             return capture_ff, update_ff
         else:
             @instance
@@ -241,7 +243,7 @@ class ScanRegister:
         ce = Signal(bool(0))
         se = Signal(bool(0))
         ue = Signal(bool(0))
-        reset = ResetSignal(1, active=0, async=True)
+        reset = ResetSignal(1, 0, True)
         clock = Signal(bool(0))
 
         sreg_inst = ScanRegister('TOP', 'ScanRegister0', si, ce, se, ue, sel, reset, clock, so, di, do, width=9)
