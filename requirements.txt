@@ -1,1 +1,2 @@
-myhdl >= 0.10
+myhdl >= 0.11
+Pillow >= 6.0.0
