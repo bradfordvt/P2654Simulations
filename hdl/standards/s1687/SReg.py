@@ -22,7 +22,6 @@ class SReg:
         :param so: ScanOutPort
         :param di: DataInPort [Signal(bool(0) for _ in range(dr_width)]
         :param do: DataOutPort [Signal(bool(0) for _ in range(dr_width)]
-        :param sr: ScanRegister object associated with this SReg
         :param dr_width: The width of the DI/DO interfaces and size of the SR
         """
         logging.info("Constructing SReg instance ({:s}).".format(path + '.' + name))
