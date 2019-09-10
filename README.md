@@ -124,33 +124,31 @@ cycle on the JTAGInterface side.
 ![TPSP Protocol Description](./docs/images/TPSPProtocol.png)
 
 ```python
-class TPSP:
+@block
+def TPSP(path, name, spclk, reset_n, spio_in, spio_en, spio_out,
+             jtag_interface, tdi, tdo, tdo_en,
+             power_usage_register, thermal_register, monitor=False):
     """
-    Class structure implementing the RTL for the interface logic.
+    Logic to create an instance of the 2-Pin Serial Port
+    :param path: Dot path of the parent of this instance
+    :param name: String containing the instance name to be printed in diagnostic messages
+    :param spclk: Clock signal used to change state and tick the delay times for delay states
+    :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
+    :param spio_in: Data Input Signal
+    :param spio_en: Control Signal to enable the SPIO_OUT to the SPIO bus
+    :param spio_out: Data Output Signal
+    :param jtag_interface: JTAGInterface object defining the JTAG signals used by this controller
+    :param tdi: Test Data Input signal of the jtag_interface for this device
+    :param tdo: Test Data Output signal of the jtag_interface for this device
+    :param tdo_en: Test Data Output Enable input signal for the jtag_interface for this device
+    :param power_usage_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% power usage
+            that changes over time depending on the operation being performed.  The power monitor would
+            monitor this value and report how much total power in the system is being used.
+    :param thermal_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% themal usage
+            that changes over time depending on the operation being performed.  The temperature monitor
+            would monitor this value and report the temperature the system is producing.
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
-
-    def __init__(self, name, spclk, reset_n, spio_in, spio_en, spio_out,
-                 jtag_interface, tdi, tdo, tdo_en,
-                 power_usage_register, thermal_register):
-        """
-        Constructor to create an instance of the MBIST Simulated Instrument
-        :param name: String containing the instance name to be printed in diagnostic messages
-        :param spclk: Clock signal used to change state and tick the delay times for delay states
-        :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
-        :param spio_in: Data Input Signal
-        :param spio_en: Control Signal to enable the SPIO_OUT to the SPIO bus
-        :param spio_out: Data Output Signal
-        :param jtag_interface: JTAGInterface object defining the JTAG signals used by this controller
-        :param tdi: Test Data Input signal of the jtag_interface for this device
-        :param tdo: Test Data Output signal of the jtag_interface for this device
-        :param tdo_en: Test Data Output Enable input signal for the jtag_interface for this device
-        :param power_usage_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% power usage
-                that changes over time depending on the operation being performed.  The power monitor would
-                monitor this value and report how much total power in the system is being used.
-        :param thermal_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% themal usage
-                that changes over time depending on the operation being performed.  The tempurature monitor
-                would monitor this value and report the temperature the system is producing.
-        """
 ```
 #### use_cases
 ##### *rearick*
@@ -200,196 +198,358 @@ in JTAG_Ctrl_Master.py as an example).
 The interface code snippet may be found here:
 
 ```python
-    def write_vector(self, addr, data):
-        """
-        Non-convertable code
-        This code is used to simplify writing of test benches
-        :param addr: Address of memory buffer to store the next segment of the vector into (size of data_width)
-        :param data: The contents to be written into the memory buffer of the master (size of data_width)
-        :return:
-        """
-        yield self.clk.negedge
-        self.addr.next = addr
-        self.din.next = data
-        self.wr.next = bool(1)
-        yield self.clk.posedge
-        yield self.clk.negedge
-        self.wr.next = bool(0)
-        yield self.clk.posedge
-        self.addr.next = 0
+def write_vector(clk, waddr, din, wr, addr, data):
+    """
+    Non-convertable code
+    This code is used to simplify writing of test benches
+    :param control_interface: Interface to this device
+    :param addr: Address of memory buffer to store the next segment of the vector into (size of data_width)
+    :param data: The contents to be written into the memory buffer of the master (size of data_width)
+    :return:
+    """
+    yield clk.negedge
+    waddr.next = addr
+    din.next = data
+    wr.next = bool(1)
+    yield clk.posedge
+    yield clk.negedge
+    wr.next = bool(0)
+    yield clk.posedge
+    waddr.next = 0
 
-    def read_vector(self, addr):
-        """
-        Non-convertable code
-        This code is used to simplify writing of test benches
-        :param addr: Address of memory buffer to fetch the next segment of the vector from (size of data_width)
-        :return:
-        """
-        yield self.clk.negedge
-        self.addr.next = addr
-        self.wr.next = bool(0)
-        yield self.clk.posedge
-        self.read_data.next = self.dout
-        yield self.clk.negedge
-        yield self.clk.posedge
-        self.addr.next = 0
 
-    def get_read_data(self):
-        """
-        Returns the value fetched by the read_vector call
-        :return:
-        """
-        return self.read_data
+def read_vector(clk, raddr, wr, read_data, dout, addr):
+    """
+    Non-convertable code
+    This code is used to simplify writing of test benches
+    :param addr: Address of memory buffer to fetch the next segment of the vector from (size of data_width)
+    :return:
+    """
+    yield clk.negedge
+    raddr.next = addr
+    wr.next = bool(0)
+    yield clk.posedge
+    read_data.next = dout
+    yield clk.negedge
+    yield clk.posedge
+    raddr.next = 0
 
-    def scan_vector(self, tdi_vector, count, tdo_vector, start, end):
-        """
-        Scan the vector to the TAP with the IR data and capture the response in tdo_vector
-        :param tdi_vector: Array of integers for the data to be shifted out (tdi_vector[0] is first integer sent)
-        :param count: number of bits to shift
-        :param tdo_vector: Array of integers for the data to be captured into (tdo_vector[0] is first integer captured)
-        :param start: JTAGCtrlMaster.SHIFTIR or SHIFTDR
-        :param end: JTAGCtrlMaster.RUN_TEST_IDLE
-        :return:
-        """
-        # Fill the JTAGCtrlMaster data buffer memory with tdi data
-        num_full_words = int(count // self.data_width)
-        remainder = count % self.data_width
-        addr = intbv(0)[self.addr_width:]
-        for i in range(num_full_words):
-            data = intbv(tdi_vector[i])[self.data_width:]
-            yield self.write_vector(addr, data)
-            addr = addr + 1
-        # Now write out the remaining bits that may be a partial word in size, but a full word needs to be written
-        if remainder > 0:
-            data = intbv(tdi_vector[num_full_words])[self.data_width:]
-            yield self.write_vector(addr, data)
-        # Now start the scan operation
-        self.bit_count.next = intbv(count)[self.addr_width:]
-        self.shift_strobe.next = bool(1)
-        self.state_start.next = start
-        self.state_end.next = end
-        yield self.busy.posedge
-        self.shift_strobe.next = bool(0)
-        yield self.busy.negedge
-        # Scan completed, now fetch the captured data
-        addr = intbv(0)[self.addr_width:]
-        for i in range(num_full_words):
-            yield self.read_vector(addr)
-            data = self.get_read_data()
-            tdo_vector[i] = int(data)
-            addr = addr + 1
-        # Now read out the remaining bits that may be a partial word in size, but a full word needs to be read
-        if remainder > 0:
-            yield self.read_vector(addr)
-            data = self.get_read_data()
-            tdo_vector[num_full_words] = int(data)
 
-    def scan_ir(self, tdi_vector, count, tdo_vector):
-        """
-        Scan the vector to the TAP with the IR data and capture the response in tdo_vector
-        :param tdi_vector: Signal(intbv(0)[count:]) Data to be shifted out
-        :param count: number of bits to shift
-        :param tdo_vector: Signal(intbv(0)[count]) Data to be captured
-        :return:
-        """
-        start = JTAGCtrlMaster.SHIFT_IR
-        end = JTAGCtrlMaster.RUN_TEST_IDLE
-        yield self.scan_vector(tdi_vector, count, tdo_vector, start, end)
+def get_read_data(read_data):
+    """
+    Returns the value fetched by the read_vector call
+    :return:
+    """
+    return read_data
 
-    def scan_dr(self, tdi_vector, count, tdo_vector):
-        """
-        Scan the vector to the TAP with the DR data and capture the response in tdo_vector
-        :param tdi_vector: Signal(intbv(0)[count:]) Data to be shifted out
-        :param count: number of bits to shift
-        :param tdo_vector: Signal(intbv(0)[count]) Data to be captured
-        :return:
-        """
-        start = JTAGCtrlMaster.SHIFT_DR
-        end = JTAGCtrlMaster.RUN_TEST_IDLE
-        yield self.scan_vector(tdi_vector, count, tdo_vector, start, end)
+
+def scan_vector(clk, waddr, raddr, wr, din, dout, read_data, bit_count, shift_strobe, state_start, state_end, busy,
+                tdi_vector, count, tdo_vector, start, end, addr_width=10, data_width=8):
+    """
+    Scan the vector to the TAP with the IR data and capture the response in tdo_vector
+    :param tdi_vector: Array of integers for the data to be shifted out (tdi_vector[0] is first integer sent)
+    :param count: number of bits to shift
+    :param tdo_vector: Array of integers for the data to be captured into (tdo_vector[0] is first integer captured)
+    :param start: SHIFTIR or SHIFTDR
+    :param end: RUN_TEST_IDLE
+    :return:
+    """
+    # Fill the JTAGCtrlMaster data buffer memory with tdi data
+    num_full_words = int(count // data_width)
+    remainder = count % data_width
+    addr = intbv(0)[addr_width:]
+    for i in range(num_full_words):
+        data = intbv(tdi_vector[i])[data_width:]
+        yield write_vector(clk, waddr, din, wr, addr, data)
+        addr = addr + 1
+    # Now write out the remaining bits that may be a partial word in size, but a full word needs to be written
+    if remainder > 0:
+        data = intbv(tdi_vector[num_full_words])[data_width:]
+        yield write_vector(clk, waddr, din, wr, addr, data)
+    # Now start the scan operation
+    bit_count.next = intbv(count)[addr_width:]
+    shift_strobe.next = bool(1)
+    state_start.next = start
+    state_end.next = end
+    yield busy.posedge
+    shift_strobe.next = bool(0)
+    yield busy.negedge
+    # Scan completed, now fetch the captured data
+    addr = intbv(0)[addr_width:]
+    for i in range(num_full_words):
+        yield read_vector(clk, raddr, wr, read_data, dout, addr)
+        data = get_read_data(read_data)
+        tdo_vector[i] = int(data)
+        addr = addr + 1
+    # Now read out the remaining bits that may be a partial word in size, but a full word needs to be read
+    if remainder > 0:
+        yield read_vector(clk, raddr, wr, read_data, dout, addr)
+        data = get_read_data(read_data)
+        tdo_vector[num_full_words] = int(data)
+
+
+def scan_ir(clk, waddr, raddr, wr, din, dout, read_data, bit_count, shift_strobe, state_start, state_end, busy,
+            tdi_vector, count, tdo_vector, addr_width=10, data_width=8):
+    """
+    Scan the vector to the TAP with the IR data and capture the response in tdo_vector
+    :param tdi_vector: Signal(intbv(0)[count:]) Data to be shifted out
+    :param count: number of bits to shift
+    :param tdo_vector: Signal(intbv(0)[count]) Data to be captured
+    :return:
+    """
+    start = SHIFT_IR
+    end = RUN_TEST_IDLE
+    yield scan_vector(clk, waddr, raddr, wr, din, dout, read_data, bit_count, shift_strobe, state_start,
+                      state_end, busy,
+                      tdi_vector, count, tdo_vector, start, end,
+                      addr_width=addr_width, data_width=data_width)
+
+
+def scan_dr(clk, waddr, raddr, wr, din, dout, read_data, bit_count, shift_strobe, state_start, state_end, busy,
+            tdi_vector, count, tdo_vector, addr_width=10, data_width=8):
+    """
+    Scan the vector to the TAP with the DR data and capture the response in tdo_vector
+    :param tdi_vector: Signal(intbv(0)[count:]) Data to be shifted out
+    :param count: number of bits to shift
+    :param tdo_vector: Signal(intbv(0)[count]) Data to be captured
+    :return:
+    """
+    start = SHIFT_DR
+    end = RUN_TEST_IDLE
+    yield scan_vector(clk, waddr, raddr, wr, din, dout, read_data, bit_count, shift_strobe, state_start,
+                      state_end, busy,
+                      tdi_vector, count, tdo_vector, start, end,
+                      addr_width=addr_width, data_width=data_width)
 ```
 
 The example test bench showing how to use these utility methods
 is shown below:
 
 ```python
-    @staticmethod
-    @block
-    def testbench(monitor=False):
+@block
+def JTAGCtrlMaster_tb(monitor=False):
+    """
+    Test bench interface for a quick test of the operation of the design
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    :return: A list of generators for this logic
+    """
+    addr_width=10
+    data_width=8
+    control_interface = JTAGCtrlMasterInterface(addr_width=addr_width, data_width=data_width)
+    ir_tdi_vector = [Signal(intbv(0x55)[data_width:]), Signal(intbv(0x19)[data_width:])]
+    ir_tdo_vector = [Signal(intbv(0)[data_width:]), Signal(intbv(0)[data_width:])]
+    dr_tdi_vector = [Signal(intbv(0xA5)[data_width:]), Signal(intbv(0x66)[data_width:])]
+    dr_tdo_vector = [Signal(intbv(0)[data_width:]), Signal(intbv(0)[data_width:])]
+    count = 15
+
+    jcm_inst = JTAGCtrlMaster('DEMO', 'JCM0',
+                              control_interface,
+                              monitor=monitor)
+
+    @instance
+    def clkgen():
+        while True:
+            control_interface.clk.next = not control_interface.clk
+            yield delay(period // 2)
+
+    @always_seq(control_interface.clk.posedge, reset=control_interface.reset_n)
+    def loopback():
+        control_interface.tdo.next = control_interface.tdi
+
+    @instance
+    def stimulus():
         """
-        Test bench interface for a quick test of the operation of the design
-        :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
-        :return: A list of generators for this logic
+        Scan an IR followed by a scan of a DR
+        :return:
         """
-        addr_width = 10
-        data_width = 8
-        clk = Signal(bool(0))
-        reset_n = ResetSignal(1, active=0, async=True)
-        # JTAG Part
-        bit_count = Signal(intbv(0)[16:])
-        shift_strobe = Signal(bool(0))
-        tdo = Signal(bool(0))
-        tck = Signal(bool(0))
-        tms = Signal(bool(0))
-        tdi = Signal(bool(0))
-        trst = Signal(bool(1))
-        busy = Signal(bool(0))
-        state_start = Signal(intbv(JTAGCtrlMaster.TEST_LOGIC_RESET)[4:])
-        state_end = Signal(intbv(JTAGCtrlMaster.TEST_LOGIC_RESET)[4:])
-        state_current = Signal(intbv(JTAGCtrlMaster.TEST_LOGIC_RESET)[4:])
-        # Ram Part
-        addr = Signal(intbv(0)[addr_width:])
-        wr = Signal(bool(0))
-        din = Signal(intbv(0)[data_width:])
-        dout = Signal(intbv(0)[data_width:])
-        ir_tdi_vector = [0x55, 0x19]
-        ir_tdo_vector = [0, 0]
-        dr_tdi_vector = [0xA5, 0x66]
-        dr_tdo_vector = [0, 0]
-        count = 15
+        H = bool(1)
+        L = bool(0)
+        # Reset the instrument
+        control_interface.reset_n.next = bool(0)
+        yield delay(2)
+        control_interface.reset_n.next = bool(1)
+        yield delay(50)
+        # Scan the IR
+        # yield scan_ir(control_interface.clk, control_interface.addr, control_interface.addr, control_interface.wr,
+        #               control_interface.din, control_interface.dout, control_interface.read_data,
+        #               control_interface.bit_count, control_interface.shift_strobe,
+        #               control_interface.state_start, control_interface.state_end, control_interface.busy,
+        #               ir_tdi_vector, count, ir_tdo_vector,
+        #               addr_width=addr_width, data_width=data_width)
 
-        jcm_inst = JTAGCtrlMaster('DEMO', 'JCM0',
-                                  clk,
-                                  reset_n,
-                                  bit_count, shift_strobe,
-                                  tdo, tck, tms, tdi, trst,
-                                  busy,
-                                  state_start, state_end, state_current,
-                                  addr, wr, din, dout,
-                                  addr_width=addr_width,
-                                  data_width=data_width)
+        start = SHIFT_IR
+        end = RUN_TEST_IDLE
+        # Fill the JTAGCtrlMaster data buffer memory with tdi data
+        num_full_words = int(count // data_width)
+        remainder = count % data_width
+        addr = intbv(0)[addr_width:]
+        for i in range(num_full_words):
+            data = ir_tdi_vector[i]
+            # yield write_vector(clk, waddr, din, wr, addr, data)
+            yield control_interface.clk.negedge
+            control_interface.addr.next = addr
+            control_interface.din.next = data
+            control_interface.wr.next = bool(1)
+            yield control_interface.clk.posedge
+            yield control_interface.clk.negedge
+            control_interface.wr.next = bool(0)
+            yield control_interface.clk.posedge
+            control_interface.addr.next = 0
 
-        @always(delay(10))
-        def clkgen():
-            clk.next = not clk
+            addr += 1
+        # Now write out the remaining bits that may be a partial word in size, but a full word needs to be written
+        if remainder > 0:
+            data = ir_tdi_vector[num_full_words]
+            # yield write_vector(clk, waddr, din, wr, addr, data)
+            yield control_interface.clk.negedge
+            control_interface.addr.next = addr
+            control_interface.din.next = data
+            control_interface.wr.next = bool(1)
+            yield control_interface.clk.posedge
+            yield control_interface.clk.negedge
+            control_interface.wr.next = bool(0)
+            yield control_interface.clk.posedge
+            control_interface.addr.next = 0
 
-        @always_seq(clk.posedge, reset=reset_n)
-        def loopback():
-            tdo.next = tdi
+        # Now start the scan operation
+        control_interface.bit_count.next = intbv(count)[addr_width:]
+        control_interface.shift_strobe.next = bool(1)
+        control_interface.state_start.next = start
+        control_interface.state_end.next = end
+        yield control_interface.busy.posedge
+        control_interface.shift_strobe.next = bool(0)
+        yield control_interface.busy.negedge
+        # Scan completed, now fetch the captured data
+        addr = intbv(0)[addr_width:]
+        for i in range(num_full_words):
+            # yield read_vector(clk, raddr, wr, read_data, dout, addr)
+            yield control_interface.clk.negedge
+            control_interface.addr.next = addr
+            control_interface.wr.next = bool(0)
+            yield control_interface.clk.posedge
+            # control_interface.read_data.next = control_interface.dout
+            rdata = int(control_interface.dout)
+            yield control_interface.clk.negedge
+            yield control_interface.clk.posedge
+            control_interface.addr.next = 0
 
-        @instance
-        def stimulus():
-            """
-            Scan an IR followed by a scan of a DR
-            :return:
-            """
-            H = bool(1)
-            L = bool(0)
-            # Reset the instrument
-            reset_n.next = bool(0)
-            yield delay(2)
-            reset_n.next = bool(1)
-            yield delay(50)
-            # Scan the IR
-            yield jcm_inst.scan_ir(ir_tdi_vector, count, ir_tdo_vector)
-            print("ir_tdo_vector = ", ir_tdo_vector)
-            assert(ir_tdo_vector == [0x55, 0x19])  # Captured TDO value returned to ir_tdo_vector
-            yield jcm_inst.scan_dr(dr_tdi_vector, count, dr_tdo_vector)
-            print("dr_tdo_vector = ", dr_tdo_vector)
-            assert(dr_tdo_vector == [0xA5, 0x66])  # Captured TDO value returned to dr_tdo_vector
-            raise StopSimulation()
+            # data = get_read_data(read_data)
+            # data = control_interface.read_data
+            # ir_tdo_vector[i] = int(data)
+            ir_tdo_vector[i] = rdata
+            addr += 1
+        # Now read out the remaining bits that may be a partial word in size, but a full word needs to be read
+        if remainder > 0:
+            # yield read_vector(clk, raddr, wr, read_data, dout, addr)
+            yield control_interface.clk.negedge
+            control_interface.addr.next = addr
+            control_interface.wr.next = bool(0)
+            yield control_interface.clk.posedge
+            # control_interface.read_data.next = control_interface.dout
+            rdata = int(control_interface.dout)
+            yield control_interface.clk.negedge
+            yield control_interface.clk.posedge
+            control_interface.addr.next = 0
 
-        return jcm_inst.JTAGCtrlMaster_rtl(monitor=monitor), clkgen, stimulus, loopback
+            # data = get_read_data(read_data)
+            # data = control_interface.read_data
+            ir_tdo_vector[num_full_words] = rdata
+
+        print("ir_tdo_vector = ", ir_tdo_vector)
+        assert(ir_tdo_vector[0] == 0x55)  # Captured TDO value returned to ir_tdo_vector
+        assert(ir_tdo_vector[1] == 0x19)  # Captured TDO value returned to ir_tdo_vector
+        # yield scan_dr(control_interface.clk, control_interface.addr, control_interface.addr, control_interface.wr,
+        #               control_interface.din, control_interface.dout, control_interface.read_data,
+        #               control_interface.bit_count, control_interface.shift_strobe,
+        #               control_interface.state_start, control_interface.state_end, control_interface.busy,
+        #               dr_tdi_vector, count, dr_tdo_vector,
+        #               addr_width=addr_width, data_width=data_width)
+        start = SHIFT_DR
+        end = RUN_TEST_IDLE
+        # Fill the JTAGCtrlMaster data buffer memory with tdi data
+        num_full_words = int(count // data_width)
+        remainder = count % data_width
+        addr = intbv(0)[addr_width:]
+        for i in range(num_full_words):
+            data = dr_tdi_vector[i]
+            # yield write_vector(clk, waddr, din, wr, addr, data)
+            yield control_interface.clk.negedge
+            control_interface.addr.next = addr
+            control_interface.din.next = data
+            control_interface.wr.next = bool(1)
+            yield control_interface.clk.posedge
+            yield control_interface.clk.negedge
+            control_interface.wr.next = bool(0)
+            yield control_interface.clk.posedge
+            control_interface.addr.next = 0
+
+            addr += 1
+        # Now write out the remaining bits that may be a partial word in size, but a full word needs to be written
+        if remainder > 0:
+            data = dr_tdi_vector[num_full_words]
+            # yield write_vector(clk, waddr, din, wr, addr, data)
+            yield control_interface.clk.negedge
+            control_interface.addr.next = addr
+            control_interface.din.next = data
+            control_interface.wr.next = bool(1)
+            yield control_interface.clk.posedge
+            yield control_interface.clk.negedge
+            control_interface.wr.next = bool(0)
+            yield control_interface.clk.posedge
+            control_interface.addr.next = 0
+
+        # Now start the scan operation
+        control_interface.bit_count.next = intbv(count)[addr_width:]
+        control_interface.shift_strobe.next = bool(1)
+        control_interface.state_start.next = start
+        control_interface.state_end.next = end
+        yield control_interface.busy.posedge
+        control_interface.shift_strobe.next = bool(0)
+        yield control_interface.busy.negedge
+        # Scan completed, now fetch the captured data
+        addr = intbv(0)[addr_width:]
+        for i in range(num_full_words):
+            # yield read_vector(clk, raddr, wr, read_data, dout, addr)
+            yield control_interface.clk.negedge
+            control_interface.addr.next = addr
+            control_interface.wr.next = bool(0)
+            yield control_interface.clk.posedge
+            # control_interface.read_data.next = control_interface.dout
+            rdata = int(control_interface.dout)
+            yield control_interface.clk.negedge
+            yield control_interface.clk.posedge
+            control_interface.addr.next = 0
+
+            # data = get_read_data(read_data)
+            #data = control_interface.read_data
+            # print("control_interface.read_data = ", control_interface.read_data)
+            print("rdata0 = ", rdata)
+            dr_tdo_vector[i] = rdata
+            addr += 1
+        # Now read out the remaining bits that may be a partial word in size, but a full word needs to be read
+        if remainder > 0:
+            # yield read_vector(clk, raddr, wr, read_data, dout, addr)
+            yield control_interface.clk.negedge
+            control_interface.addr.next = addr
+            control_interface.wr.next = bool(0)
+            yield control_interface.clk.posedge
+            # control_interface.read_data.next = control_interface.dout
+            # print("control_interface.read_data = ", control_interface.read_data)
+            rdata = int(control_interface.dout)
+            print("data1 = ", rdata)
+            yield control_interface.clk.negedge
+            yield control_interface.clk.posedge
+            control_interface.addr.next = 0
+
+            # data = get_read_data(read_data)
+            # data = control_interface.read_data
+            dr_tdo_vector[num_full_words] = rdata
+        print("dr_tdo_vector = ", dr_tdo_vector)
+        assert(dr_tdo_vector[0] == 0xA5)  # Captured TDO value returned to dr_tdo_vector
+        assert(dr_tdo_vector[1] == 0x66)  # Captured TDO value returned to dr_tdo_vector
+        raise StopSimulation()
+
+    return jcm_inst, clkgen, stimulus, loopback
 ```
 
 ##### *JTAGShiftBlock*
@@ -409,6 +569,65 @@ instruments to be used during the simulations.
 These instruments make up the elements identified
 in the various use cases found by the working
 groups.
+#### *clock_freq_counter*
+The clock_freq_counter is used to measure the frequency
+of a clock input using a master clock as the basis for
+comparison.  The instrument compares the number of samples
+of the test clock to a fininte number of reference ticks
+to determine the frequency of the input clock being tested.
+```python
+@block
+def clock_freq_counter(path, name, clk, reset_n, i_clk_test, o_clock_freq, monitor=False):
+    """
+    Clock Frequency Counter
+    Variables and processes with prefix r1_ are with clk reference domain
+    Variables and processes with prefix r2_ are with i_clk_test domain
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param clk: Reference Clock
+    :param reset_n: Reset signal to reset the logic
+    :param i_clk_test: The clock to be tested
+    :param o_clock_freq: Signal(intbv(0)[16:]) The count of ticks on i_clk_test
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+```
+#### *clock_generator*
+The clock generator is composed of to entities: clock_tick and
+mod_m_counter.  This instrument is based on the work outlined
+[here](https://buildmedia.readthedocs.org/media/pdf/fpga-designs-with-myhdl/latest/fpga-designs-with-myhdl.pdf).
+The clock_tick entity delegates most of the work to the mod_m_counter
+to create the programmable clock frequency for the generator.
+```python
+@block
+def clock_tick(path, name, clk, reset_n, clk_pulse, M=5, N=3, monitor=False):
+    """
+    Clock pulse generator
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param clk: Reference Clock
+    :param reset_n: Reset signal to reset the logic
+    :param clk_pulse: Output clock pulse
+    :param M: Max count
+    :param N: minimum bits required to represent M
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+```
+```python
+@block
+def mod_m_counter(path, name, clk, reset_n, complete_tick, count, M=5, N=3, monitor=False):
+    """
+    Modulo M counter
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param clk: Reference Clock
+    :param reset_n: Reset signal to reset the logic
+    :param complete_tick: Output clock
+    :param count: The internal counter value
+    :param M: Max count
+    :param N: minimum bits required to represent M
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+```
 #### *comparator*
 The comparator class is used to simulate the temperature
 comparator instrument of the Rearick use case.
@@ -418,26 +637,25 @@ register to set the high threshold, and a status register
 of 2 bits indicating a temperature undertemp and overtemp
 conditions.
 ```python
-class comparator:
+@block
+def comparator(path, name, clock, reset_n, temperature,
+               low_register, high_register,
+               status_register, monitor=False):
     """
-    Class structure implementing the RTL for the instrument.
-    """
-    def __init__(self, parent, name, clock, reset_n, temperature,
-                 low_register, high_register,
-                 status_register):
-        """
 
-        :param path: Dot path of the parent of this instance
-        :param name: Instance name for debug logger (path instance)
-        :param clock: Clock signal used to change state
-        :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
-        :param temperature: Register where output value of temperature
-        :param low_register: Low temperature setting for good range
-        :param high_register: High temperature setting for good range
-        :param status_register: Status of comparison [Signal(bool(0)), Signal(bool(0))]
-                Bit0: 1=Temperature fell below low value, 0=Temperature at or above low value
-                Bit1: 1=Temperature above high value, 0=Temperature at or below high value
-        """
+    :param path: Dot path of the path of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param clock: Clock signal used to change state
+    :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
+    :param temperature: Register where output value of temperature
+    :param low_register: Low temperature setting for good range
+    :param high_register: High temperature setting for good range
+    :param status_register: Status of comparison Signal(intbv(0)[8:])
+            Bit0: 1=Temperature fell below low value, 0=Temperature at or above low value
+            Bit1: 1=Temperature above high value, 0=Temperature at or below high value
+            Bits2-7: Reserved (default to 0)
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
 ```
 #### *LED*
 The LED class provides the simulation of the LED indicator
@@ -459,32 +677,6 @@ class LED:
         :param di:
         """
 ```
-#### *thermometer*
-The thermometer class is used to simulate a temperature sensor
-monitoring the temperature generated by the MBIST
-instruments as the MBIST tests are applied.
-```python
-class thermometer:
-    """
-    Class structure implementing the RTL for the instrument.
-    """
-    def __init__(self, parent, name, clock, reset_n, temperature,
-                 thermal_register1, thermal_register2, thermal_register3,
-                 thermal_register4, thermal_register5):
-        """
-
-        :param path: Dot path of the parent of this instance
-        :param name: Instance name for debug logger (path instance)
-        :param clock: Clock signal used to change state
-        :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
-        :param temperature: Register where output value of temperature
-        :param thermal_register1: Proportion of total temperature of MBIST1
-        :param thermal_register2: Proportion of total temperature of MBIST2
-        :param thermal_register3: Proportion of total temperature of MBIST3
-        :param thermal_register4: Proportion of total temperature of MBIST4
-        :param thermal_register5: Proportion of total temperature of MBIST5
-        """
-```
 #### *simulatedmbist*
 The simulatedmbist class represents a fictional
 Memory BIST entity inside a device that tests
@@ -493,44 +685,72 @@ model does not actually test a memory block,
 but instead simulates the time taken and
 the power and temperature profiles the instrument
 would have on a device.
+
+(Place picture of instrument here)
 ```python
-class simulatedmbist:
+@block
+def simulatedmbist(path, name, clock, reset_n, control_register, cr_latch, status_register, power_usage_register,
+                   thermal_register, initialize_delay=10, test_delay=30, analyze_delay=20, monitor=False):
     """
-    Class structure implementing the RTL for the instrument.
+    Constructor to create an instance of the MBIST Simulated Instrument
+    :param path: Dot path of the parent of this instance
+    :param name: String containing the instance name to be printed in diagnostic messages
+    :param clock: Clock signal used to change state and tick the delay times for delay states
+    :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
+    :param control_register[0:7]: Parallel register to control the operation of the instrument
+            Bit0: 1=Start the BIST operation, 0=NOP for status scans
+            Bit1: 1=Stop the BIST operation and abort, 0=Do not abort the test
+            Bit2: 1=Inject error during test_delay state, 0=Do not inject error during test_delay state
+            Bit3: 1=Inject error during analyze_delay state, 0=Do not inject error during analyze_delay state
+            Bit4: 1=Double the initialize_delay time to use at start, 0=Use the specified initialize_delay
+            Bit5: 1=Double the test_delay time to use at start, 0=Use the specified test_delay
+            Bit6: 1=Double the analyze_delay time to use at start, 0=Use the specified analyze_delay
+            Bit7: Reserved (Defaults to 0)
+    :param cr_latch: Latch trigger to update value of control_register
+    :param status_register[0:7]: Parallel register to publish the status of the instrument operation
+            Bit0: 1=Test passed, 0=Test failed
+            Bit1: 1=MBIST test is running, 0=MBIST test is not running
+            Bit2: 1=Test aborted due to unknown error, 0=Test did not abort
+            Bit3: 1=Error during test state detected, 0=No error detected during test state
+            Bit4: 1=Error during analyze state detected, 0=No error detected during analyze state
+            Bit5: Reserved.  Added so status_register can be capture register and control_register as update
+            Bit6: Reserved.  Added so status_register can be capture register and control_register as update
+            Bit7: Reserved. (Defaults to 0)
+    :param power_usage_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% power usage
+            that changes over time depending on the operation being performed.  The power monitor would
+            monitor this value and report how much total power in the system is being used.
+    :param thermal_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% thermal usage
+            that changes over time depending on the operation being performed.  The temperature monitor
+            would monitor this value and report the temperature the system is producing.
+    :param initialize_delay: Keyword argument to specify the number of clock ticks to spin in initialize state
+    :param test_delay: Keyword argument to specify the number of clock ticks to spin in the test state
+    :param analyze_delay: Keyword argument to specify the number of clock ticks to spin in the analyze state
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
-    def __init__(self, name, clock, reset_n, control_register, status_register, power_usage_register,
-                 thermal_register, initialize_delay=10, test_delay=30, analyze_delay=20):
-        """
-        Constructor to create an instance of the MBIST Simulated Instrument
-        :param name: String containing the instance name to be printed in diagnostic messages
-        :param clock: Clock signal used to change state and tick the delay times for delay states
-        :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
-        :param control_register[0:7]: Parallel register to control the operation of the instrument
-                Bit0: 1=Start the BIST operation, 0=NOP for status scans
-                Bit1: 1=Stop the BIST operation and abort, 0=Do not abort the test
-                Bit2: 1=Inject error during test_delay state, 0=Do not inject error during test_delay state
-                Bit3: 1=Inject error during analyze_delay state, 0=Do not inject error during analyze_delay state
-                Bit4: 1=Double the initialize_delay time to use at start, 0=Use the specified initialize_delay
-                Bit5: 1=Double the test_delay time to use at start, 0=Use the specified test_delay
-                Bit6: 1=Double the analyze_delay time to use at start, 0=Use the specified analyze_delay
-        :param status_register[0:7]: Parallel register to publish the status of the instrument operation
-                Bit0: 1=Test passed, 0=Test failed
-                Bit1: 1=MBIST test is running, 0=MBIST test is not running
-                Bit2: 1=Test aborted due to unknown error, 0=Test did not abort
-                Bit3: 1=Error during test state detected, 0=No error detected during test state
-                Bit4: 1=Error during analyze state detected, 0=No error detected during analyze state
-                Bit5: Reserved.  Added so status_register can be capture register and control_register as update
-                Bit6: Reserved.  Added so status_register can be capture register and control_register as update
-        :param power_usage_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% power usage
-                that changes over time depending on the operation being performed.  The power monitor would
-                monitor this value and report how much total power in the system is being used.
-        :param thermal_register: Signal(intbv(0, min=0, max=101)) signal representing 0 - 100% thermal usage
-                that changes over time depending on the operation being performed.  The temperature monitor
-                would monitor this value and report the temperature the system is producing.
-        :param initialize_delay: Keyword argument to specify the number of clock ticks to spin in initialize state
-        :param test_delay: Keyword argument to specify the number of clock ticks to spin in the test state
-        :param analyze_delay: Keyword argument to specify the number of clock ticks to spin in the analyze state
-        """
+```
+#### *thermometer*
+The thermometer class is used to simulate a temperature sensor
+monitoring the temperature generated by the MBIST
+instruments as the MBIST tests are applied.
+```python
+@block
+def thermometer(parent, name, clock, reset_n, temperature,
+                thermal_register1, thermal_register2, thermal_register3,
+                thermal_register4, thermal_register5, monitor=False):
+    """
+
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param clock: Clock signal used to change state
+    :param reset_n: Reset signal for state machine. 0=Reset, 1=No reset
+    :param temperature: Register where output value of temperature
+    :param thermal_register1: Proportion of total temperature of MBIST1
+    :param thermal_register2: Proportion of total temperature of MBIST2
+    :param thermal_register3: Proportion of total temperature of MBIST3
+    :param thermal_register4: Proportion of total temperature of MBIST4
+    :param thermal_register5: Proportion of total temperature of MBIST5
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
 ```
 ### standards
 The standards directory contains reusable
@@ -611,15 +831,18 @@ of the TAPInterface class that describes the
 signals used to interface with the scan logic
 inside the device.
 ```python
-class Std1149_1_TAP:
-    def __init__(self, jtag_interface, state, tap_interface):
-        """
-        TAP Controller logic
-        :param jtag_interface: JTAGInterface object defining the JTAG signals used by this controller
-        :param state: Monitor signal state with this 4 bit encoding
-        :param tap_interface: TAPInterface object defining the TAP signals managed by this controller
-        :return:
-        """
+@block
+def Std1149_1_TAP(path, name, jtag_interface, state, tap_interface, monitor=False):
+    """
+    TAP Controller logic
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param jtag_interface: JTAGInterface object defining the JTAG signals used by this controller
+    :param state: Monitor signal state with this 4 bit encoding
+    :param tap_interface: TAPInterface object defining the TAP signals managed by this controller
+    :return:
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
 ```
 ##### *TAPInterface*
 This class defines the bused interface signals
@@ -653,24 +876,26 @@ or pin interfaces, such as the Boundary Scan
 Register used to test the continuity between
 devices.
 ```python
-class TDR:
-    def __init__(self, path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tdr_width=9):
-        """
-        :param path: Dot path of the parent of this instance
-        :param name: Instance name for debug logging (path instance)
-        :param D: tdr_width bit wide Signal array of intbv(bool) as the mission input [Signal(bool(0)) for i in range(tdr_width)]
-        :param Q: tdr_width bit wide Signal array of intbv(bool) as the mission output [Signal(bool(0)) for i in range(tdr_width)]
-        :param scan_in: Input signal for data scanned into TDR
-        :param tap_interface: TAPInterface object containing:
-            CaptureDR: Signal used to enable the capture of D
-            ShiftDR: Signal used to shift the data out ScanOut from the TDR
-            UpdateDR: Signal used to latch the TDR to Q
-            Select: Signal used to activate the TDR
-            Reset: Signal used to reset the Q of the TDR
-            ClockDR: Test Clock used to synchronize the TDR to the TAP
-        :param local_reset: Signal used by the internal hardware to reset the TDR
-        :param scan_out: Output signal where data is scanned from the TDR
-        """
+@block
+def TDR(path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tdr_width=9, monitor=False):
+    """
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logging (path instance)
+    :param D: tdr_width bit wide Signal D = Signal(intbv(0)[tdr_width:])
+    :param Q: tdr_width bit wide Signal Q = Signal(intbv(0)[tdr_width:])
+    :param scan_in: Input signal for data scanned into TDR
+    :param tap_interface: TAPInterface object containing:
+        CaptureDR: Signal used to enable the capture of D
+        ShiftDR: Signal used to shift the data out ScanOut from the TDR
+        UpdateDR: Signal used to latch the TDR to Q
+        Select: Signal used to activate the TDR
+        Reset: Signal used to reset the Q of the TDR
+        tap_interface.ClockDR: Test tap_interface.ClockDR used to synchronize the TDR to the TAP
+    :param local_reset: Active low Signal used by the internal hardware to reset the TDR
+    :param scan_out: Output signal where data is scanned from the TDR
+    :param tdr_width: The number of bits contained in this register
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
 ```
 ##### *TIR*
 The TIR class implements the logic for the
@@ -678,23 +903,149 @@ Test Instruction Register used to select the
 desired TDR to be accessed during a SHIFTDR
 state sequence.
 ```python
-class TIR:
-    def __init__(self, path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tir_width=9):
-        """
-        :param path: Dot path of the parent of this instance
-        :param name: Instance name for debug logging (path instance)
-        :param D: tir_width bit wide Signal array of intbv(bool) as the mission input [Signal(bool(0)) for i in range(tir_width)]
-        :param Q: tir_width bit wide Signal array of intbv(bool) as the mission output [Signal(bool(0)) for i in range(tir_width)]
-        :param scan_in: Input signal for data scanned into TIR
-        :param tap_interface: TAPInterface object containing:
-            CaptureIR: Signal used to enable the capture of D
-            ShiftIR: Signal used to shift the data out ScanOut from the TIR
-            UpdateIR: Signal used to latch the TIR to Q
-            Reset: Signal used to reset the Q of the TIR
-            ClockIR: Test Clock used to synchronize the TIR to the TAP
-        :param local_reset: Signal used by the internal hardware to reset the TIR
-        :param scan_out: Output signal where data is scanned from the TIR
-        """
+@block
+def TIR(path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tir_width=9, monitor=False):
+    """
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logging (path instance)
+    :param D: tir_width bit wide Signal D = Signal(intbv(0)[tir_width:])
+    :param Q: tir_width bit wide Signal Q = Signal(intbv(0)[tir_width:])
+    :param scan_in: Input signal for data scanned into TIR
+    :param tap_interface: TAPInterface object containing:
+        CaptureIR: Signal used to enable the capture of D
+        ShiftIR: Signal used to shift the data out ScanOut from the TIR
+        UpdateIR: Signal used to latch the TIR to Q
+        Select: Signal used to activate the TIR
+        Reset: Signal used to reset the Q of the TIR
+        tap_interface.ClockIR: Test tap_interface.ClockIR used to synchronize the TIR to the TAP
+    :param local_reset: Active low Signal used by the internal hardware to reset the TIR
+    :param scan_out: Output signal where data is scanned from the TIR
+    :param tir_width: The number of bits contained in this register
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+```
+#### s1500
+This directory contains the following models
+used to provide reusable components/designs
+for devices adhering to the IEEE Std 1500
+standard for access to embedded instrumentation.
+##### *selwir*
+This entity represents the Select Wrapper Instruction Register
+logic for a 1500 design.
+```python
+@block
+def SELWIR(path, name, si, ijtag_interface, so, select_wir, monitor=False):
+    """
+    Creates a Select WIR register with the following interface:
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logging (path instance)
+    :param si: ScanInPort
+    :param ijtag_interface: IJTAGInterface defining the control signals for this register
+    :param so: ScanOutPort
+    :param select_wir: Select WIR signal to be controlled by this register
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+```
+##### *wby*
+This entity represents the Wrapper BYPASS register of the design.
+```python
+@block
+def wby(path, name, wsi, wsp_interface, select, wby_wso, width=1, monitor=False):
+    """
+    This class implements the logic for the WBY (Wrapper BYPASS Register) of IEEE Std 1500 standard.
+    IEEE Std 1500 Wrapper BYPASS Register (WBY) Logic adhering to Figure 15 of the standard
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logging (path instance)
+    :param wsi: Wrapper Scan In Signal
+    :param wsp_interface: Wrapper Scan Port instance
+    :param select: Select Signal for WBY from WIR (select and wsp_interface.ShiftWB are used to create
+            the ShiftWBY signal)
+    :param wby_wso: Wrapper BYPASS Scan Out Signal
+    :param width: The number of scan bits implemented by this WBY
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+```
+##### *wdrmux*
+This entity represents the Wrapper Data Register MUX that controls
+what data register is connected between WSI and WSO as defined
+by the current instruction in the SELWIR register.
+```python
+@block
+def WDRmux(path, name,
+             wby_out, mbist1_out, mbist2_out, mbist3_out,
+             wr_select_list, dr_select_list,
+             so, monitor=False):
+    """
+    MUX to control what WDR is connected to so
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param wby_out: Signal Out from WBY register
+    :param mbist1_out: Signal Out from MBIST1 register
+    :param mbist2_out: Signal Out from MBIST2 register
+    :param mbist3_out: Signal Out from MBIST3 register
+    :param wr_select_list: [Signal(bool(0) for _ in range(len(wr_list)] to use as 1500 wrapper instruction signals
+    :param dr_select_list: [Signal(bool(0) for _ in range(len(user_list)] to use as user instruction signals
+    :param so: Signal out from WDRs to WIRMux
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+```
+##### *wir*
+This entity is the Wrapper Instruction Register logic for the
+Rearick use case for the data registers defined by the use case.
+```python
+@block
+def wir(path, name, wsi, wsp, wso, wr_list, user_list, wr_select_list, dr_select_list, monitor=False):
+    """
+    Wrapper Instruction Register Logic
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param wsi: Wrapper Scan In Port
+    :param wsp: Wrapper Scan Port instance
+    :param wso: Wrapper Scan Out Port
+    :param wr_list: A list of strings defining the Wrapper 1500 instructions as per the standard
+    :param user_list: A list of strings defining the instructions for the user defined data registers
+    :param wr_select_list: Signal(intbv(0)[len(wr_list):]) to use as 1500 wrapper instruction signals
+    :param dr_select_list: Signal(intbv(0)[len(user_list):]) to use as user instruction signals
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+```
+##### *wirmux*
+This entity defines the MUX that is used to select when the WIR
+is connected between WSI and WSO or if the data register path
+should be selected.
+```python
+@block
+def WIRmux(path, name, wdr_out, wir_out, select_wir, so, monitor=False):
+    """
+    MUX to control what WDR is connected to so
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param wdr_out: Signal Out from WDRmux logic
+    :param wir_out: Signal Out from WIR register
+    :param select_wir: Select Signal for WIR register
+    :param so: Signal out from WIRMux
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+```
+##### *wsp*
+This interface implements the Wrapper Serial Port (WSP) interface of IEEE Std 1500 standard.
+```python
+class wsp:
+    """
+    This class implements the Wrapper Serial Port (WSP) interface of IEEE Std 1500 standard.
+    """
+    def __init__(self):
+        self.AUXCKn = Signal(bool(0))
+        self.WRCK = Signal(bool(0))
+        self.WRSTN = Signal(bool(1))
+        self.TransferDR = Signal(bool(0))
+        self.UpdateWR = Signal(bool(0))
+        self.ShiftWR = Signal(bool(0))
+        self.CaptureWR = Signal(bool(0))
+        self.SelectWIR = Signal(bool(0))
+        # Do not add the serial in and out to this interface as these get daisy chained and not bussed.
+        # self.WSI = Signal(bool(0))
+        # self.WSO = Signal(bool(0))
 ```
 #### s1687
 This directory contains the following models
@@ -734,23 +1085,22 @@ to the sub-network (to side) using 2 separate
 IJTAGInterface instances: one for the from (network)
 side and one for the to (instrument) side.
 ```python
-class sib_mux_post:
+@block
+def sib_mux_post(path, name, si, from_ijtag_interface, so, to_si, to_ijtag_interface, from_so, monitor=False):
     """
-    This class implements the logic from Figure F.10 in the IEEE Std 1687 standard.
+    This code implements the logic from Figure F.10 in the IEEE Std 1687 standard.
+    Segment-Insertion-Bit (SIB) to allow the overall scan chain to be of variable length.
+    Creates a Module SIB for IEEE 1687 with the following interface:
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logging (path instance)
+    :param si: Scan Input from host interface
+    :param from_ijtag_interface: IJTAGInterface defining the control signals for this register "from" side
+    :param so: Scan Output to host interface from SIB
+    :param to_si: Scan Input to instrument interface
+    :param to_ijtag_interface: IJTAGInterface defining the control signals for this register "to" side
+    :param from_so: Scan Output from instrument interface
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
-    def __init__(self, path, name, si, from_ijtag_interface, so, to_si, to_ijtag_interface, from_so):
-        """
-        Segment-Insertion-Bit (SIB) to allow the overall scan chain to be of variable length.
-        Creates a Module SIB for IEEE 1687 with the following interface:
-        :param path: Dot path of the parent of this instance
-        :param name: Instance name for debug logging (path instance)
-        :param si: Scan Input from host interface
-        :param from_ijtag_interface: IJTAGInterface defining the control signals for this register "from" side
-        :param so: Scan Output to host interface from SIB
-        :param to_si: Scan Input to instrument interface
-        :param to_ijtag_interface: IJTAGInterface defining the control signals for this register "to" side
-        :param from_so: Scan Output from instrument interface
-        """
 ```
 ##### *sib_mux_pre*
 The sib_mux_pre class describes the design
@@ -768,23 +1118,22 @@ to the sub-network (to side) using 2 separate
 IJTAGInterface instances: one for the from (network)
 side and one for the to (instrument) side.
 ```python
-class sib_mux_pre:
+@block
+def sib_mux_pre(path, name, si, from_ijtag_interface, so, to_si, to_ijtag_interface, from_so, monitor=False):
     """
     This class implements the logic from Figure F.12 in the IEEE Std 1687 standard.
+    Segment-Insertion-Bit (SIB) to allow the overall scan chain to be of variable length.
+    Creates a Module SIB for IEEE 1687 with the following interface:
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logging (path instance)
+    :param si: Scan Input from host interface
+    :param from_ijtag_interface: IJTAGInterface defining the control signals for this register "from" side
+    :param so: Scan Output to host interface from SIB
+    :param to_si: Scan Input to instrument interface
+    :param to_ijtag_interface: IJTAGInterface defining the control signals for this register "to" side
+    :param from_so: Scan Output from instrument interface
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
-    def __init__(self, path, name, si, from_ijtag_interface, so, to_si, to_ijtag_interface, from_so):
-        """
-        Segment-Insertion-Bit (SIB) to allow the overall scan chain to be of variable length.
-        Creates a Module SIB for IEEE 1687 with the following interface:
-        :param path: Dot path of the parent of this instance
-        :param name: Instance name for debug logging (path instance)
-        :param si: Scan Input from host interface
-        :param from_ijtag_interface: IJTAGInterface defining the control signals for this register "from" side
-        :param so: Scan Output to host interface from SIB
-        :param to_si: Scan Input to instrument interface
-        :param to_ijtag_interface: IJTAGInterface defining the control signals for this register "to" side
-        :param from_so: Scan Output from instrument interface
-        """
 ```
 ##### *SReg*
 The SReg class describes the generic scan
@@ -799,20 +1148,20 @@ The class provides a client interface to the
 1687 network as well as handles to capture
 and update parallel registers.
 ```python
-class SReg:
-    def __init__(self, path, name, si, ijtag_interface, so, di, do, dr_width=9):
-        """
-        Creates a Module SReg for IEEE 1687 with the following interface:
-        :param path: Dot path of the parent of this instance
-        :param name: Instance name for debug logging (path instance)
-        :param si: ScanInPort
-        :param ijtag_interface: IJTAGInterface defining the control signals for this register
-        :param so: ScanOutPort
-        :param di: DataInPort [Signal(bool(0) for _ in range(dr_width)]
-        :param do: DataOutPort [Signal(bool(0) for _ in range(dr_width)]
-        :param sr: ScanRegister object associated with this SReg
-        :param dr_width: The width of the DI/DO interfaces and size of the SR
-        """
+@block
+def SReg(path, name, si, ijtag_interface, so, di, do, dr_width=9, monitor=False):
+    """
+    Creates a Module SReg for IEEE 1687 with the following interface:
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logging (path instance)
+    :param si: ScanInPort
+    :param ijtag_interface: IJTAGInterface defining the control signals for this register
+    :param so: ScanOutPort
+    :param di: DataInPort Signal(intbv(0)[dr_width:])
+    :param do: DataOutPort Signal(intbv(0)[dr_width:])
+    :param dr_width: The width of the DI/DO interfaces and size of the SR
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
 ```
 ### tests
 This directory contains the test cases used
