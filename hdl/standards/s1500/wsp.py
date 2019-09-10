@@ -13,7 +13,7 @@ class wsp:
     def __init__(self):
         self.AUXCKn = Signal(bool(0))
         self.WRCK = Signal(bool(0))
-        self.WRSTN = Signal(bool(0))
+        self.WRSTN = Signal(bool(1))
         self.TransferDR = Signal(bool(0))
         self.UpdateWR = Signal(bool(0))
         self.ShiftWR = Signal(bool(0))

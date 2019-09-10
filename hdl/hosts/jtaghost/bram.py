@@ -6,58 +6,36 @@ See the licence file in the top directory
 from myhdl import *
 
 
-class RAM:
-    """
-
-    """
-    def __init__(self, clk, reset_n, Write, Awr, Ard, Din, Dout, addr_width=10, data_width=8):
-        """
-
-        :param clk:
-        :param reset_n:
-        :param Write:
-        :param Awr:
-        :param Ard:
-        :param Din:
-        :param Dout:
-        :param addr_width:
-        :param data_width:
-        """
-        self.clk = clk
-        self.reset_n = reset_n
-        self.Write = Write
-        self.Awr = Awr
-        self.Ard = Ard
-        self.Din = Din
-        self.Dout = Dout
+class RAMInterface:
+    def __init__(self, addr_width=10, data_width=8):
+        self.clk = Signal(bool(0))
+        self.reset_n = ResetSignal(1, 0, True)
+        self.Write = Signal(bool(0))
+        self.Awr = Signal(bool(0))
+        self.Ard = Signal(intbv(0)[addr_width:])
+        self.Din = Signal(intbv(0)[data_width:])
+        self.Dout = Signal(intbv(0)[data_width:])
         self.addr_width = addr_width
         self.data_width = data_width
-        self.memory = [Signal(intbv(0)[data_width:]) for _ in range(2**addr_width)]
 
-    def rtl(self, monitor=False):
-        """
-        Wrapper around the RTL logic to get a meaningful name during conversion
-        :param monitor:
-        :return:
-        """
-        return self.RAM_rtl(monitor=monitor)
 
-    @block
-    def RAM_rtl(self, monitor=False):
-        """
-        Logic to implement the JTAGHost JTAGCtrlMaster BRAM block
-        :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
-        :return: A list of generators for this logic
-        """
-        @always_seq(self.clk.posedge, reset=self.reset_n)
-        def memory_process():
-            if self.Write == 1:
-                self.memory[self.Awr].next = self.Din
-            # print("self.Ard = ", self.Ard)
+@block
+def RAM(ram_interface):
+    """
 
-        @always_comb
-        def out_process():
-            self.Dout.next = self.memory[self.Ard]
+    :param ram_interface: Signal interface to block RAM device
+    """
+    memory = [Signal(intbv(0)[ram_interface.data_width:]) for _ in range(2**ram_interface.addr_width)]
 
-        return memory_process, out_process
+    @always_seq(ram_interface.clk.posedge, reset=ram_interface.reset_n)
+    def memory_process():
+        if ram_interface.Write == 1:
+            memory[ram_interface.Awr].next = ram_interface.Din
+        # print("Ard = ", ram_interface.Ard)
+
+    @always_comb
+    def out_process():
+        ram_interface.Dout.next = memory[ram_interface.Ard]
+
+    return memory_process, out_process
 

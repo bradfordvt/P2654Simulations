@@ -8,7 +8,7 @@ from myhdl import *
 
 class TAPInterface:
     def __init__(self):
-        self.Reset = Signal(bool(0))
+        self.Reset = Signal(bool(1))
         self.Enable = Signal(bool(0))
         self.ShiftIR = Signal(bool(0))
         self.CaptureIR = Signal(bool(0))

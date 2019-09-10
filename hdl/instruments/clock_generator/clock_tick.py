@@ -10,61 +10,110 @@ import os
 import os.path
 from hdl.instruments.clock_generator.mod_m_counter import mod_m_counter
 
+period = 20  # clk frequency = 50 MHz
 
-class clock_tick:
-    def __init__(self, path, name, clk, reset_n, clk_pulse, M, N):
-        """
-        Clock pulse generator
-        :param path: Dot path of the parent of this instance
-        :param name: Instance name for debug logger (path instance)
-        :param clk: Reference Clock
-        :param reset_n: Reset signal to reset the logic
-        :param clk_pulse: Output clock pulse
-        :param M: Max count
-        :param N: minimum bits required to represent M
-        """
-        self.path = path
-        self.name = name
-        self.clk = clk
-        self.reset_n = reset_n
-        self.clk_pulse = clk_pulse
-        self.M = M
-        self.N = N
-        self.count = Signal(intbv(0)[N:0])
 
-    def toVHDL(self):
+@block
+def clock_tick(path, name, clk, reset_n, clk_pulse, M=5, N=3, monitor=False):
+    """
+    Clock pulse generator
+    :param path: Dot path of the parent of this instance
+    :param name: Instance name for debug logger (path instance)
+    :param clk: Reference Clock
+    :param reset_n: Reset signal to reset the logic
+    :param clk_pulse: Output clock pulse
+    :param M: Max count
+    :param N: minimum bits required to represent M
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    """
+    count = Signal(intbv(0)[N:0])
+
+    mod_m_counter_inst = mod_m_counter(path + name, "MMC0", clk, reset_n, clk_pulse, count, M, N, monitor=monitor)
+    return mod_m_counter_inst
+
+
+@block
+def clock_tick_tb(monitor=False):
+    """
+    Test bench interface for a quick test of the operation of the design
+    :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
+    :return: A list of generators for this logic
+    """
+    H = bool(1)
+    L = bool(0)
+    N = 3
+    M = 5
+    clk = Signal(bool(0))
+    reset_n = Signal(bool(1))
+    complete_tick = Signal(bool(0))
+    num_ticks = Signal(intbv(0, min=0, max=200))
+
+    cg_inst = clock_tick('TOP', 'CG0', clk, reset_n, complete_tick, M, N, monitor=monitor)
+
+    @instance
+    def clkgen():
+        while True:
+            # 50 MHz clock, 20 nsec period
+            clk.next = not clk
+            yield delay(period // 2)
+
+    @instance
+    def monitor_complete_tick():
+        while 1:
+            yield complete_tick.posedge
+            num_ticks.next = num_ticks + 1
+
+    @instance
+    def stimulus():
         """
-        Converts the myHDL logic into VHDL
+        Perform instruction decoding for various instructions
         :return:
         """
-        vhdl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vhdl')
-        if not os.path.exists(vhdl_dir):
-            os.mkdir(vhdl_dir, mode=0o777)
-        self.rtl(monitor=False).convert(hdl="VHDL", initial_values=True, directory=vhdl_dir)
+        # Reset the Clock Generator
+        reset_n.next = bool(0)
+        yield delay(10)
+        reset_n.next = bool(1)
+        yield delay(10000)
+        # print("num_ticks = ", int(num_ticks))
+        assert(int(num_ticks) == 100)
 
-    def toVerilog(self):
-        """
-        Converts the myHDL logic into Verilog
-        :return:
-        """
-        verilog_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'verilog')
-        if not os.path.exists(verilog_dir):
-            os.mkdir(verilog_dir, mode=0o777)
-        self.rtl(monitor=False).convert(hdl="Verilog", initial_values=True, directory=verilog_dir)
+        raise StopSimulation()
 
-    def rtl(self, monitor=False):
-        """
-        Wrapper around the RTL logic to get a meaningful name during conversion
-        :param monitor:
-        :return:
-        """
-        return self.clock_tick_rtl(monitor=monitor)
+    return cg_inst, clkgen, monitor_complete_tick, stimulus
 
-    @block
-    def clock_tick_rtl(self, monitor=False):
-        """
-        The logic for the Clock Generator
-        :return: The generator methods performing the logic decisions
-        """
-        mod_m_counter_inst = mod_m_counter(self.clk, self.reset_n, self.clk_pulse, self.count, self.M, self.N)
-        return mod_m_counter_inst.rtl(monitor=monitor)
+
+def convert():
+    """
+    Convert the myHDL design into VHDL and Verilog
+    :return:
+    """
+    N = 3
+    M = 5
+    clk = Signal(bool(0))
+    reset_n = Signal(bool(1))
+    complete_tick = Signal(bool(0))
+
+    cg_inst = clock_tick('TOP', 'CG0', clk, reset_n, complete_tick, M, N, monitor=False)
+
+    vhdl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vhdl')
+    if not os.path.exists(vhdl_dir):
+        os.mkdir(vhdl_dir, mode=0o777)
+    cg_inst.convert(hdl="VHDL", initial_values=True, directory=vhdl_dir, name="clock_tick")
+    verilog_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'verilog')
+    if not os.path.exists(verilog_dir):
+        os.mkdir(verilog_dir, mode=0o777)
+    cg_inst.convert(hdl="Verilog", initial_values=True, directory=verilog_dir, name="clock_tick")
+    tb = clock_tick_tb(monitor=False)
+    tb.convert(hdl="VHDL", initial_values=True, directory=vhdl_dir, name="clock_tick_tb")
+    tb.convert(hdl="Verilog", initial_values=True, directory=verilog_dir, name="clock_tick_tb")
+
+
+def main():
+    tb = clock_tick_tb(monitor=True)
+    tb.config_sim(trace=True)
+    tb.run_sim()
+    convert()
+
+
+if __name__ == '__main__':
+    main()
