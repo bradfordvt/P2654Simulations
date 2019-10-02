@@ -32,10 +32,10 @@ def ScanRegister(path, name, si, ce, se, ue, sel, reset, clock, so, di, do, widt
     isr = Signal(intbv(0)[width:])
     @always(clock.posedge)
     def capture_ff():
-        if sel == bool(0) and ce == bool(1):
+        if sel == bool(1) and ce == bool(1):
             for i in range(width):
                 isr.next[i] = di[i]
-        elif sel == bool(0) and se == bool(1):
+        elif sel == bool(1) and se == bool(1):
             for i in range(width):
                 if i == 0:
                     isr.next[i] = si
@@ -54,7 +54,7 @@ def ScanRegister(path, name, si, ce, se, ue, sel, reset, clock, so, di, do, widt
         if reset == bool(0):
             for i in range(width):
                 do.next[i] = bool(0)
-        elif sel == bool(0) and ue == bool(1):
+        elif sel == bool(1) and ue == bool(1):
             for i in range(width):
                 do.next[i] = isr[i]
 
@@ -163,7 +163,7 @@ def ScanRegister_tb(monitor=False):
     si_data[width - 5] = Signal(bool(1))
     si_data[width - 7] = Signal(bool(1))
     so_data = [Signal(bool(0)) for _ in range(width)]
-    sel = Signal(bool(0))
+    sel = Signal(bool(1))
     ce = Signal(bool(0))
     se = Signal(bool(0))
     ue = Signal(bool(0))
