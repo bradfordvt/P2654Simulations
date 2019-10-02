@@ -26,6 +26,7 @@ def SReg(path, name, si, ijtag_interface, so, di, do, dr_width=9, monitor=False)
     :param dr_width: The width of the DI/DO interfaces and size of the SR
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
+    reset_n = Signal(bool(1))
     sr_inst = ScanRegister(
                             path + '.' + name,
                             'ScanRegister' + name[-1],
@@ -34,15 +35,20 @@ def SReg(path, name, si, ijtag_interface, so, di, do, dr_width=9, monitor=False)
                             ijtag_interface.SHIFT,
                             ijtag_interface.UPDATE,
                             ijtag_interface.SELECT,
-                            ijtag_interface.RESET,
+                            reset_n,
                             ijtag_interface.CLOCK,
                             so,
                             di,
                             do,
                             dr_width
                             )
+
+    @always_comb
+    def reset_logic():
+        reset_n.next = not ijtag_interface.RESET
+
     if monitor == False:
-        return sr_inst
+        return sr_inst, reset_logic
     else:
         @instance
         def monitor_si():
@@ -71,7 +77,7 @@ def SReg(path, name, si, ijtag_interface, so, di, do, dr_width=9, monitor=False)
                 yield do
                 print("\t\tSReg({:s}) do:".format(path + name), do)
 
-        return monitor_si, monitor_so, monitor_di, monitor_do, sr_inst
+        return monitor_si, monitor_so, monitor_di, monitor_do, sr_inst, reset_logic
 
 
 @block
@@ -125,9 +131,9 @@ def SReg_tb(monitor=False):
         H = bool(1)
         L = bool(0)
         # Reset the instrument
-        ijtag_interface.RESET.next = bool(0)
-        yield delay(10)
         ijtag_interface.RESET.next = bool(1)
+        yield delay(10)
+        ijtag_interface.RESET.next = bool(0)
         yield delay(10)
         # Start the Capture transition operation
         yield ijtag_interface.CLOCK.posedge
