@@ -70,7 +70,7 @@ def sib_mux_pre(path, name, si, from_ijtag_interface, so, to_si, to_ijtag_interf
     @always(from_ijtag_interface.CLOCK.negedge)
     def updateFF():
         # print("Entering updateFF")
-        if from_ijtag_interface.RESET == bool(0):
+        if from_ijtag_interface.RESET == bool(1):
             update_bit.next = bool(0)
         else:
             update_bit.next = mux4_out
@@ -337,9 +337,9 @@ def sib_mux_pre_tb(monitor=False):
         H = bool(1)
         L = bool(0)
         # Reset the SIB
-        from_ijtag_interface.RESET.next = bool(0)
-        yield delay(10)
         from_ijtag_interface.RESET.next = bool(1)
+        yield delay(10)
+        from_ijtag_interface.RESET.next = bool(0)
         yield delay(10)
         # Start the Capture transition operation
         # First C, S(0), U is so == bool(0)?

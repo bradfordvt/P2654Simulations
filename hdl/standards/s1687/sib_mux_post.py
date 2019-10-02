@@ -44,7 +44,7 @@ def sib_mux_post(path, name, si, from_ijtag_interface, so, to_si, to_ijtag_inter
     @always(from_ijtag_interface.CLOCK.posedge)
     def updateFF():
         # print("Entering updateFF")
-        if from_ijtag_interface.RESET == bool(0):
+        if from_ijtag_interface.RESET == bool(1):
             update_bit.next = bool(0)
         elif from_ijtag_interface.SELECT and from_ijtag_interface.UPDATE:
             # print("SEL and UE")
@@ -272,9 +272,9 @@ def sib_mux_post_tb(monitor=False):
         H = bool(1)
         L = bool(0)
         # Reset the SIB
-        from_ijtag_interface.RESET.next = bool(0)
-        yield delay(10)
         from_ijtag_interface.RESET.next = bool(1)
+        yield delay(10)
+        from_ijtag_interface.RESET.next = bool(0)
         yield delay(10)
         # Start the Capture transition operation
         # First C, S(0), U is so == bool(0)?
