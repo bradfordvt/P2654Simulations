@@ -28,179 +28,181 @@ def sib_mux_post(path, name, si, from_ijtag_interface, so, to_si, to_ijtag_inter
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
     update_bit = Signal(bool(0))
+    tsr_data = Signal(bool(0))
     
     @always(from_ijtag_interface.CLOCK.posedge)
     def captureFF():
         # print("Entering captureFF")
         if from_ijtag_interface.SELECT and from_ijtag_interface.CAPTURE:
             # print("SEL and CE")
-            to_si.next = update_bit
+            tsr_data.next = update_bit
         elif from_ijtag_interface.SELECT and from_ijtag_interface.SHIFT:
             # print("captureFF: SI=", si)
-            to_si.next = si
+            to_si.next = tsr_data
+            tsr_data.next = si
         else:
             to_si.next = to_si
 
-    @always(from_ijtag_interface.CLOCK.posedge)
+    @always(from_ijtag_interface.CLOCK.negedge)
     def updateFF():
         # print("Entering updateFF")
         if from_ijtag_interface.RESET == bool(1):
             update_bit.next = bool(0)
         elif from_ijtag_interface.SELECT and from_ijtag_interface.UPDATE:
             # print("SEL and UE")
-            update_bit.next = to_si
+            # update_bit.next = to_si
+            update_bit.next = tsr_data
         else:
             update_bit.next = update_bit
 
-    @always(from_ijtag_interface.CLOCK.posedge)
+    @always_comb
     def Mux_post():
         if update_bit == bool(1):
             so.next = from_so
         else:
-            so.next = to_si
+            so.next = tsr_data
 
     @always_comb
     def sel():
         to_ijtag_interface.RESET.next = from_ijtag_interface.RESET
+        to_ijtag_interface.CLOCK.next = from_ijtag_interface.CLOCK
         if update_bit and from_ijtag_interface.SELECT:
             to_ijtag_interface.SELECT.next = from_ijtag_interface.SELECT
             to_ijtag_interface.CAPTURE.next = from_ijtag_interface.CAPTURE
             to_ijtag_interface.SHIFT.next = from_ijtag_interface.SHIFT
             to_ijtag_interface.UPDATE.next = from_ijtag_interface.UPDATE
-            to_ijtag_interface.CLOCK.next = from_ijtag_interface.CLOCK
         else:
             to_ijtag_interface.SELECT.next = bool(0)
             to_ijtag_interface.CAPTURE.next = bool(0)
             to_ijtag_interface.SHIFT.next = bool(0)
             to_ijtag_interface.UPDATE.next = bool(0)
-            to_ijtag_interface.CLOCK.next = bool(0)
 
     if not monitor:
         return captureFF, updateFF, Mux_post, sel
     else:
         @instance
         def monitor_update_bit():
-            print("\t\tsib_mux_post({:s}): update_bit".format(path + name), update_bit)
+            print("\t\tsib_mux_post({:s}): update_bit".format(path + "." + name), update_bit)
             while 1:
                 yield update_bit
-                print("\t\tsib_mux_post({:s}): update_bit".format(path + name), update_bit)
+                print("\t\tsib_mux_post({:s}): update_bit".format(path + "." + name), update_bit)
 
         @instance
         def monitor_si():
-            print("\t\tsib_mux_post({:s}): si".format(path + name), si)
+            print("\t\tsib_mux_post({:s}): si".format(path + "." + name), si)
             while 1:
                 yield si
-                print("\t\tsib_mux_post({:s}): si".format(path + name), si)
+                print("\t\tsib_mux_post({:s}): si".format(path + "." + name), si)
 
         @instance
         def monitor_so():
-            print("\t\tsib_mux_post({:s}): so".format(path + name), so)
+            print("\t\tsib_mux_post({:s}): so".format(path + "." + name), so)
             while 1:
                 yield so
-                print("\t\tsib_mux_post({:s}) so:".format(path + name), so)
+                print("\t\tsib_mux_post({:s}) so:".format(path + "." + name), so)
 
         @instance
         def monitor_from_so():
-            print("\t\tsib_mux_post({:s}): from_so".format(path + name), from_so)
+            print("\t\tsib_mux_post({:s}): from_so".format(path + "." + name), from_so)
             while 1:
                 yield from_so
-                print("\t\tsib_mux_post({:s}): from_so".format(path + name), from_so)
+                print("\t\tsib_mux_post({:s}): from_so".format(path + "." + name), from_so)
 
         @instance
         def monitor_to_si():
-            print("\t\tsib_mux_post({:s}): to_si".format(path + name), to_si)
+            print("\t\tsib_mux_post({:s}): to_si".format(path + "." + name), to_si)
             while 1:
                 yield to_si
-                print("\t\tsib_mux_post({:s}) to_si:".format(path + name), to_si)
+                print("\t\tsib_mux_post({:s}) to_si:".format(path + "." + name), to_si)
 
         @instance
         def monitor_from_ijtag_interface_capture():
-            print("\t\tsib_mux_post({:s}): from_ijtag_interface.CAPTURE".format(path + name),
+            print("\t\tsib_mux_post({:s}): from_ijtag_interface.CAPTURE".format(path + "." + name),
                   from_ijtag_interface.CAPTURE)
             while 1:
                 yield from_ijtag_interface.CAPTURE
-                print("\t\tsib_mux_post({:s}): from_ijtag_interface.CAPTURE".format(path + name),
+                print("\t\tsib_mux_post({:s}): from_ijtag_interface.CAPTURE".format(path + "." + name),
                       from_ijtag_interface.CAPTURE)
 
         @instance
         def monitor_from_ijtag_interface_shift():
-            print("\t\tsib_mux_post({:s}): from_ijtag_interface.SHIFT".format(path + name),
+            print("\t\tsib_mux_post({:s}): from_ijtag_interface.SHIFT".format(path + "." + name),
                   from_ijtag_interface.SHIFT)
             while 1:
                 yield from_ijtag_interface.SHIFT
-                print("\t\tsib_mux_post({:s}) from_ijtag_interface.SHIFT:".format(path + name),
+                print("\t\tsib_mux_post({:s}) from_ijtag_interface.SHIFT:".format(path + "." + name),
                       from_ijtag_interface.SHIFT)
 
         @instance
         def monitor_from_ijtag_interface_update():
-            print("\t\tsib_mux_post({:s}): from_ijtag_interface.UPDATE".format(path + name),
+            print("\t\tsib_mux_post({:s}): from_ijtag_interface.UPDATE".format(path + "." + name),
                   from_ijtag_interface.UPDATE)
             while 1:
                 yield from_ijtag_interface.UPDATE
-                print("\t\tsib_mux_post({:s}): from_ijtag_interface.UPDATE".format(path + name),
+                print("\t\tsib_mux_post({:s}): from_ijtag_interface.UPDATE".format(path + "." + name),
                       from_ijtag_interface.UPDATE)
 
         @instance
         def monitor_from_ijtag_interface_select():
-            print("\t\tsib_mux_post({:s}): from_ijtag_interface.SELECT".format(path + name),
+            print("\t\tsib_mux_post({:s}): from_ijtag_interface.SELECT".format(path + "." + name),
                   from_ijtag_interface.SELECT)
             while 1:
                 yield from_ijtag_interface.SELECT
-                print("\t\tsib_mux_post({:s}) from_ijtag_interface.SELECT:".format(path + name),
+                print("\t\tsib_mux_post({:s}) from_ijtag_interface.SELECT:".format(path + "." + name),
                       from_ijtag_interface.SELECT)
 
         @instance
         def monitor_from_ijtag_interface_reset():
-            print("\t\tsib_mux_post({:s}): from_ijtag_interface.RESET".format(path + name),
+            print("\t\tsib_mux_post({:s}): from_ijtag_interface.RESET".format(path + "." + name),
                   from_ijtag_interface.RESET)
             while 1:
                 yield from_ijtag_interface.RESET
-                print("\t\tsib_mux_post({:s}) from_ijtag_interface.RESET:".format(path + name),
+                print("\t\tsib_mux_post({:s}) from_ijtag_interface.RESET:".format(path + "." + name),
                       from_ijtag_interface.RESET)
 
         @instance
         def monitor_to_ijtag_interface_capture():
-            print("\t\tsib_mux_post({:s}): to_ijtag_interface.CAPTURE".format(path + name),
+            print("\t\tsib_mux_post({:s}): to_ijtag_interface.CAPTURE".format(path + "." + name),
                   to_ijtag_interface.CAPTURE)
             while 1:
                 yield to_ijtag_interface.CAPTURE
-                print("\t\tsib_mux_post({:s}): to_ijtag_interface.CAPTURE".format(path + name),
+                print("\t\tsib_mux_post({:s}): to_ijtag_interface.CAPTURE".format(path + "." + name),
                       to_ijtag_interface.CAPTURE)
 
         @instance
         def monitor_to_ijtag_interface_shift():
-            print("\t\tsib_mux_post({:s}): to_ijtag_interface.SHIFT".format(path + name),
+            print("\t\tsib_mux_post({:s}): to_ijtag_interface.SHIFT".format(path + "." + name),
                   to_ijtag_interface.SHIFT)
             while 1:
                 yield to_ijtag_interface.SHIFT
-                print("\t\tsib_mux_post({:s}) to_ijtag_interface.SHIFT:".format(path + name),
+                print("\t\tsib_mux_post({:s}) to_ijtag_interface.SHIFT:".format(path + "." + name),
                       to_ijtag_interface.SHIFT)
 
         @instance
         def monitor_to_ijtag_interface_update():
-            print("\t\tsib_mux_post({:s}): to_ijtag_interface.UPDATE".format(path + name),
+            print("\t\tsib_mux_post({:s}): to_ijtag_interface.UPDATE".format(path + "." + name),
                   to_ijtag_interface.UPDATE)
             while 1:
                 yield to_ijtag_interface.UPDATE
-                print("\t\tsib_mux_post({:s}): to_ijtag_interface.UPDATE".format(path + name),
+                print("\t\tsib_mux_post({:s}): to_ijtag_interface.UPDATE".format(path + "." + name),
                       to_ijtag_interface.UPDATE)
 
         @instance
         def monitor_to_ijtag_interface_select():
-            print("\t\tsib_mux_post({:s}): to_ijtag_interface.SELECT".format(path + name),
+            print("\t\tsib_mux_post({:s}): to_ijtag_interface.SELECT".format(path + "." + name),
                   to_ijtag_interface.SELECT)
             while 1:
                 yield to_ijtag_interface.SELECT
-                print("\t\tsib_mux_post({:s}) to_ijtag_interface.SELECT:".format(path + name),
+                print("\t\tsib_mux_post({:s}) to_ijtag_interface.SELECT:".format(path + "." + name),
                       to_ijtag_interface.SELECT)
 
         @instance
         def monitor_to_ijtag_interface_reset():
-            print("\t\tsib_mux_post({:s}): to_ijtag_interface.RESET".format(path + name),
+            print("\t\tsib_mux_post({:s}): to_ijtag_interface.RESET".format(path + "." + name),
                   to_ijtag_interface.RESET)
             while 1:
                 yield to_ijtag_interface.RESET
-                print("\t\tsib_mux_post({:s}) to_ijtag_interface.RESET:".format(path + name),
+                print("\t\tsib_mux_post({:s}) to_ijtag_interface.RESET:".format(path + "." + name),
                       to_ijtag_interface.RESET)
 
         return captureFF, updateFF, Mux_post, sel, \
@@ -328,14 +330,14 @@ def sib_mux_post_tb(monitor=False):
         from_ijtag_interface.SHIFT.next = H
         si.next = L  # loopbackFF data in  ###################################### SHIFT(0)
         yield from_ijtag_interface.CLOCK.posedge
-        assert (so == bool(0))  # Value of loopbackFF
+        assert (so == bool(1))  # Value of loopbackFF
         yield from_ijtag_interface.CLOCK.negedge
         # Write Shift second bit value
         from_ijtag_interface.CAPTURE.next = L
         from_ijtag_interface.SHIFT.next = H
         si.next = L  # SIB data in  ############################################# SHIFT(0)
         yield from_ijtag_interface.CLOCK.posedge
-        assert (so == bool(1))  # Value of SIB
+        assert (so == bool(0))  # Value of SIB
         yield from_ijtag_interface.CLOCK.negedge
         # Update
         from_ijtag_interface.SHIFT.next = L
