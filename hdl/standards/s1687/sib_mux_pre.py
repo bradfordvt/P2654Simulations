@@ -100,172 +100,172 @@ def sib_mux_pre(path, name, si, from_ijtag_interface, so, to_si, to_ijtag_interf
     else:
         @instance
         def monitor_update_bit():
-            print("\t\tsib_mux_pre({:s}): update_bit".format(path + name), update_bit)
+            print("\t\tsib_mux_pre({:s}): update_bit".format(path + "." + name), update_bit)
             while 1:
                 yield update_bit
-                print("\t\tsib_mux_pre({:s}): update_bit".format(path + name), update_bit)
+                print("\t\tsib_mux_pre({:s}): update_bit".format(path + "." + name), update_bit)
 
         @instance
         def monitor_si():
-            print("\t\tsib_mux_pre({:s}): si".format(path + name), si)
+            print("\t\tsib_mux_pre({:s}): si".format(path + "." + name), si)
             while 1:
                 yield si
-                print("\t\tsib_mux_pre({:s}): si".format(path + name), si)
+                print("\t\tsib_mux_pre({:s}): si".format(path + "." + name), si)
 
         @instance
         def monitor_so():
-            print("\t\tsib_mux_pre({:s}): so".format(path + name), so)
+            print("\t\tsib_mux_pre({:s}): so".format(path + "." + name), so)
             while 1:
                 yield so
-                print("\t\tsib_mux_pre({:s}) so:".format(path + name), so)
+                print("\t\tsib_mux_pre({:s}) so:".format(path + "." + name), so)
 
         @instance
         def monitor_from_so():
-            print("\t\tsib_mux_pre({:s}): from_so".format(path + name), from_so)
+            print("\t\tsib_mux_pre({:s}): from_so".format(path + "." + name), from_so)
             while 1:
                 yield from_so
-                print("\t\tsib_mux_pre({:s}): from_so".format(path + name), from_so)
+                print("\t\tsib_mux_pre({:s}): from_so".format(path + "." + name), from_so)
 
         @instance
         def monitor_to_si():
-            print("\t\tsib_mux_pre({:s}): to_si".format(path + name), to_si)
+            print("\t\tsib_mux_pre({:s}): to_si".format(path + "." + name), to_si)
             while 1:
                 yield to_si
-                print("\t\tsib_mux_pre({:s}) to_si:".format(path + name), to_si)
+                print("\t\tsib_mux_pre({:s}) to_si:".format(path + "." + name), to_si)
 
         @instance
         def monitor_from_ijtag_interface_capture():
-            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.CAPTURE".format(path + name),
+            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.CAPTURE".format(path + "." + name),
                   from_ijtag_interface.CAPTURE)
             while 1:
                 yield from_ijtag_interface.CAPTURE
-                print("\t\tsib_mux_pre({:s}): from_ijtag_interface.CAPTURE".format(path + name),
+                print("\t\tsib_mux_pre({:s}): from_ijtag_interface.CAPTURE".format(path + "." + name),
                       from_ijtag_interface.CAPTURE)
 
         @instance
         def monitor_from_ijtag_interface_shift():
-            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.SHIFT".format(path + name),
+            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.SHIFT".format(path + "." + name),
                   from_ijtag_interface.SHIFT)
             while 1:
                 yield from_ijtag_interface.SHIFT
-                print("\t\tsib_mux_pre({:s}) from_ijtag_interface.SHIFT:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) from_ijtag_interface.SHIFT:".format(path + "." + name),
                       from_ijtag_interface.SHIFT)
 
         @instance
         def monitor_from_ijtag_interface_update():
-            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.UPDATE".format(path + name),
+            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.UPDATE".format(path + "." + name),
                   from_ijtag_interface.UPDATE)
             while 1:
                 yield from_ijtag_interface.UPDATE
-                print("\t\tsib_mux_pre({:s}): from_ijtag_interface.UPDATE".format(path + name),
+                print("\t\tsib_mux_pre({:s}): from_ijtag_interface.UPDATE".format(path + "." + name),
                       from_ijtag_interface.UPDATE)
 
         @instance
         def monitor_from_ijtag_interface_select():
-            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.SELECT".format(path + name),
+            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.SELECT".format(path + "." + name),
                   from_ijtag_interface.SELECT)
             while 1:
                 yield from_ijtag_interface.SELECT
-                print("\t\tsib_mux_pre({:s}) from_ijtag_interface.SELECT:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) from_ijtag_interface.SELECT:".format(path + "." + name),
                       from_ijtag_interface.SELECT)
 
         @instance
         def monitor_from_ijtag_interface_reset():
-            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.RESET".format(path + name),
+            print("\t\tsib_mux_pre({:s}): from_ijtag_interface.RESET".format(path + "." + name),
                   from_ijtag_interface.RESET)
             while 1:
                 yield from_ijtag_interface.RESET
-                print("\t\tsib_mux_pre({:s}) from_ijtag_interface.RESET:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) from_ijtag_interface.RESET:".format(path + "." + name),
                       from_ijtag_interface.RESET)
 
         @instance
         def monitor_to_ijtag_interface_capture():
-            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.CAPTURE".format(path + name),
+            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.CAPTURE".format(path + "." + name),
                   to_ijtag_interface.CAPTURE)
             while 1:
                 yield to_ijtag_interface.CAPTURE
-                print("\t\tsib_mux_pre({:s}): to_ijtag_interface.CAPTURE".format(path + name),
+                print("\t\tsib_mux_pre({:s}): to_ijtag_interface.CAPTURE".format(path + "." + name),
                       to_ijtag_interface.CAPTURE)
 
         @instance
         def monitor_to_ijtag_interface_shift():
-            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.SHIFT".format(path + name),
+            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.SHIFT".format(path + "." + name),
                   to_ijtag_interface.SHIFT)
             while 1:
                 yield to_ijtag_interface.SHIFT
-                print("\t\tsib_mux_pre({:s}) to_ijtag_interface.SHIFT:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) to_ijtag_interface.SHIFT:".format(path + "." + name),
                       to_ijtag_interface.SHIFT)
 
         @instance
         def monitor_to_ijtag_interface_update():
-            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.UPDATE".format(path + name),
+            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.UPDATE".format(path + "." + name),
                   to_ijtag_interface.UPDATE)
             while 1:
                 yield to_ijtag_interface.UPDATE
-                print("\t\tsib_mux_pre({:s}): to_ijtag_interface.UPDATE".format(path + name),
+                print("\t\tsib_mux_pre({:s}): to_ijtag_interface.UPDATE".format(path + "." + name),
                       to_ijtag_interface.UPDATE)
 
         @instance
         def monitor_to_ijtag_interface_select():
-            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.SELECT".format(path + name),
+            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.SELECT".format(path + "." + name),
                   to_ijtag_interface.SELECT)
             while 1:
                 yield to_ijtag_interface.SELECT
-                print("\t\tsib_mux_pre({:s}) to_ijtag_interface.SELECT:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) to_ijtag_interface.SELECT:".format(path + "." + name),
                       to_ijtag_interface.SELECT)
 
         @instance
         def monitor_to_ijtag_interface_reset():
-            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.RESET".format(path + name),
+            print("\t\tsib_mux_pre({:s}): to_ijtag_interface.RESET".format(path + "." + name),
                   to_ijtag_interface.RESET)
             while 1:
                 yield to_ijtag_interface.RESET
-                print("\t\tsib_mux_pre({:s}) to_ijtag_interface.RESET:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) to_ijtag_interface.RESET:".format(path + "." + name),
                       to_ijtag_interface.RESET)
 
         @instance
         def monitor_mux1_out():
-            print("\t\tsib_mux_pre({:s}): mux1_out".format(path + name),
+            print("\t\tsib_mux_pre({:s}): mux1_out".format(path + "." + name),
                   mux1_out)
             while 1:
                 yield mux1_out
-                print("\t\tsib_mux_pre({:s}) mux1_out:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) mux1_out:".format(path + "." + name),
                       mux1_out)
 
         @instance
         def monitor_mux2_out():
-            print("\t\tsib_mux_pre({:s}): mux2_out".format(path + name),
+            print("\t\tsib_mux_pre({:s}): mux2_out".format(path + "." + name),
                   mux2_out)
             while 1:
                 yield mux2_out
-                print("\t\tsib_mux_pre({:s}) mux2_out:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) mux2_out:".format(path + "." + name),
                       mux2_out)
 
         @instance
         def monitor_mux3_out():
-            print("\t\tsib_mux_pre({:s}): mux3_out".format(path + name),
+            print("\t\tsib_mux_pre({:s}): mux3_out".format(path + "." + name),
                   mux3_out)
             while 1:
                 yield mux3_out
-                print("\t\tsib_mux_pre({:s}) mux3_out:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) mux3_out:".format(path + "." + name),
                       mux3_out)
 
         @instance
         def monitor_mux4_out():
-            print("\t\tsib_mux_pre({:s}): mux4_out".format(path + name),
+            print("\t\tsib_mux_pre({:s}): mux4_out".format(path + "." + name),
                   mux4_out)
             while 1:
                 yield mux4_out
-                print("\t\tsib_mux_pre({:s}) mux4_out:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) mux4_out:".format(path + "." + name),
                       mux4_out)
 
         @instance
         def monitor_cs_out():
-            print("\t\tsib_mux_pre({:s}): cs_out".format(path + name),
+            print("\t\tsib_mux_pre({:s}): cs_out".format(path + "." + name),
                   cs_out)
             while 1:
                 yield cs_out
-                print("\t\tsib_mux_pre({:s}) cs_out:".format(path + name),
+                print("\t\tsib_mux_pre({:s}) cs_out:".format(path + "." + name),
                       cs_out)
 
         return mux1, mux2, mux3, mux4, captureFF, updateFF, sel, \
