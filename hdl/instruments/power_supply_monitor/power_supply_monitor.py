@@ -16,7 +16,7 @@ period = 20  # clk frequency = 50 MHz
 @block
 def power_supply_monitor(path, name, reference, delta, fast_ck, over, under,
                          noise, pu_mbist1, pu_mbist2, pu_mbist3, pu_mbist4, pu_mbist5,
-                         monitor=False):
+                         noise_flag, monitor=False):
     """
     Instrument to monitor the power supply stability over time to determine of the voltage is in range, over range,
     or under range.  Normal operating conditions is where under == 0 and over == 0.
@@ -38,6 +38,7 @@ def power_supply_monitor(path, name, reference, delta, fast_ck, over, under,
     :param pu_mbist3: Power Usage value coming from the mbist3 instrument. Signal(intbv(0, min=0, max=101)) type.
     :param pu_mbist4: Power Usage value coming from the mbist4 instrument. Signal(intbv(0, min=0, max=101)) type.
     :param pu_mbist5: Power Usage value coming from the mbist5 instrument. Signal(intbv(0, min=0, max=101)) type.
+    :param noise_flag: 0=Disable noise influence. 1=Enable noise influence. Signal(bool(1)) type.
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     :return: list of generators for the power_supply_monitor logic for simulation.
     """
@@ -257,7 +258,7 @@ def power_supply_monitor_tb(monitor=False):
     fast_ck = Signal(bool(0))
     over = Signal(bool(0))
     under = Signal(bool(0))
-    noise_flag = Signal(bool(0))
+    noise_flag = Signal(bool(1))
     noise = Signal(intbv(0, min=0, max=(MAX_STAGES * MAX_TOGGLES)))
     pu_mbist1 = Signal(intbv(0, min=0, max=101))
     pu_mbist2 = Signal(intbv(0, min=0, max=101))
@@ -269,7 +270,7 @@ def power_supply_monitor_tb(monitor=False):
 
     psm_inst = power_supply_monitor('TOP', 'PSM00', reference, delta, fast_ck, over, under,
                                     noise, pu_mbist1, pu_mbist2, pu_mbist3, pu_mbist4, pu_mbist5,
-                                    monitor=monitor)
+                                    noise_flag, monitor=monitor)
 
     @instance
     def clkgen():
@@ -324,6 +325,7 @@ def convert():
     over = Signal(bool(0))
     under = Signal(bool(0))
     noise = Signal(bool(0))
+    noise_flag = Signal(bool(1))
     pu_mbist1 = Signal(intbv(0, min=0, max=101))
     pu_mbist2 = Signal(intbv(0, min=0, max=101))
     pu_mbist3 = Signal(intbv(0, min=0, max=101))
@@ -334,7 +336,7 @@ def convert():
 
     psm_inst = power_supply_monitor('TOP', 'PSM00', reference, delta, fast_ck, over, under,
                                     noise, pu_mbist1, pu_mbist2, pu_mbist3, pu_mbist4, pu_mbist5,
-                                    monitor=False)
+                                    noise_flag, monitor=False)
 
     vhdl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vhdl')
     if not os.path.exists(vhdl_dir):
