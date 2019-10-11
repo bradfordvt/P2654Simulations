@@ -50,7 +50,7 @@ def noise_maker_tb(monitor=False):
     noise = Signal(intbv(0, min=0, max=(MAX_TOGGLES * MAX_STAGES)))
     ck = Signal(bool(0))
 
-    nm_inst = noise_maker("TOP", "NM0", num_toggles, num_stages, ck, noise, monitor=True)
+    nm_inst = noise_maker("TOP", "NM0", num_toggles, num_stages, ck, noise, monitor=monitor)
 
     @instance
     def clkgen():
@@ -96,7 +96,7 @@ def convert():
     noise = Signal(intbv(0, min=0, max=MAX_TOGGLES*MAX_STAGES))
     ck = Signal(bool(0))
 
-    nm_inst = noise_maker("TOP", "NM0", num_toggles, num_stages, ck, noise, monitor=True)
+    nm_inst = noise_maker("TOP", "NM0", num_toggles, num_stages, ck, noise, monitor=False)
 
     vhdl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vhdl')
     if not os.path.exists(vhdl_dir):
