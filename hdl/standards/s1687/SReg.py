@@ -52,30 +52,30 @@ def SReg(path, name, si, ijtag_interface, so, di, do, dr_width=9, monitor=False)
     else:
         @instance
         def monitor_si():
-            print("\t\tSReg({:s}): si".format(path + name), si)
+            print("\t\tSReg({:s}): si".format(path + "." + name), si)
             while 1:
                 yield si
-                print("\t\tSReg({:s}): si".format(path + name), si)
+                print("\t\tSReg({:s}): si".format(path + "." + name), si)
 
         @instance
         def monitor_so():
-            print("\t\tSReg({:s}): so".format(path + name), so)
+            print("\t\tSReg({:s}): so".format(path + "." + name), so)
             while 1:
                 yield so
-                print("\t\tSReg({:s}) so:".format(path + name), so)
+                print("\t\tSReg({:s}) so:".format(path + "." + name), so)
         @instance
         def monitor_di():
-            print("\t\tSReg({:s}): di".format(path + name), di)
+            print("\t\tSReg({:s}): di".format(path + "." + name), di)
             while 1:
                 yield di
-                print("\t\tSReg({:s}): si".format(path + name), di)
+                print("\t\tSReg({:s}): si".format(path + "." + name), di)
 
         @instance
         def monitor_do():
-            print("\t\tSReg({:s}): do".format(path + name), do)
+            print("\t\tSReg({:s}): do".format(path + "." + name), do)
             while 1:
                 yield do
-                print("\t\tSReg({:s}) do:".format(path + name), do)
+                print("\t\tSReg({:s}) do:".format(path + "." + name), do)
 
         return monitor_si, monitor_so, monitor_di, monitor_do, sr_inst, reset_logic
 
