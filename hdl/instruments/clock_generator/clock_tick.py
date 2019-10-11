@@ -28,7 +28,7 @@ def clock_tick(path, name, clk, reset_n, clk_pulse, M=5, N=3, monitor=False):
     """
     count = Signal(intbv(0)[N:0])
 
-    mod_m_counter_inst = mod_m_counter(path + name, "MMC0", clk, reset_n, clk_pulse, count, M, N, monitor=monitor)
+    mod_m_counter_inst = mod_m_counter(path + name, "MMC0", clk, reset_n, clk_pulse, count, M=M, N=N, monitor=monitor)
     return mod_m_counter_inst
 
 
@@ -42,7 +42,7 @@ def clock_tick_tb(monitor=False):
     H = bool(1)
     L = bool(0)
     N = 3
-    M = 5
+    M = Signal(intbv(5)[N:])
     clk = Signal(bool(0))
     reset_n = Signal(bool(1))
     complete_tick = Signal(bool(0))
@@ -88,7 +88,7 @@ def convert():
     :return:
     """
     N = 3
-    M = 5
+    M = Signal(intbv(5)[N:])
     clk = Signal(bool(0))
     reset_n = Signal(bool(1))
     complete_tick = Signal(bool(0))

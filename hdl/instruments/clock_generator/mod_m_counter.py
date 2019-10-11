@@ -73,8 +73,15 @@ def mod_m_counter(path, name, clk, reset_n, complete_tick, count, M=5, N=3, moni
                 yield complete_tick
                 print("\t\tmod_m_counter({:s}): complete_tick".format(path + '.' + name), complete_tick)
 
+        @instance
+        def monitor_count():
+            print("\t\tmod_m_counter({:s}): count".format(path + '.' + name), count)
+            while 1:
+                yield count
+                print("\t\tmod_m_counter({:s}): count".format(path + '.' + name), count)
+
         return out_val, logic_next, logic_reg,\
-            monitor_reset_n, monitor_clk, monitor_complete_tick
+            monitor_reset_n, monitor_clk, monitor_complete_tick, monitor_count
 
 
 @block
@@ -87,7 +94,7 @@ def mod_m_counter_tb(monitor=False):
     H = bool(1)
     L = bool(0)
     N = 3
-    M = 5
+    M = Signal(intbv(5)[N:])
     clk = Signal(bool(0))
     reset_n = Signal(bool(1))
     complete_tick = Signal(bool(0))
@@ -134,7 +141,7 @@ def convert():
     :return:
     """
     N = 3
-    M = 5
+    M = Signal(intbv(5)[N:])
     clk = Signal(bool(0))
     reset_n = Signal(bool(1))
     complete_tick = Signal(bool(0))
