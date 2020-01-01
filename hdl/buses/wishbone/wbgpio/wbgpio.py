@@ -43,8 +43,19 @@ def wbgpio(i_clk, i_wb_cyc, i_wb_stb, i_wb_we, i_wb_data, o_wb_data, i_gpio, o_g
     @always(i_clk.posedge)
     def logic0():
         if i_wb_stb and i_wb_we:
-            o_gpio.next = (o_gpio & (~i_wb_data[(NOUT + 16 - 1):16])) | (
-                        (i_wb_data[(NOUT - 1):0]) & (i_wb_data[(NOUT + 16 - 1):16]))
+            # print("*******************************************************************************")
+            # print("wbgpio.logic0: i_wb_data = ", hex(i_wb_data), ", ", bin(i_wb_data))
+            # print("wbgpio.logic0: ~i_wb_data = ", ~i_wb_data)
+            # print("wdgpio.logic0: ~i_wb_data[(NOUT +  16 - 1):16] = ", ~i_wb_data[(NOUT + 16 - 1):16])
+            # print("wbgpio.logic0: i_wb_data[(NOUT - 1):0] = ", i_wb_data[(NOUT - 1):0])
+            # print("wbgpio.logic0: i_wb_data[(NOUT + 16 - 1):16] = ", i_wb_data[(NOUT + 16 - 1):16])
+            # print("wbgpio.logic0: (i_wb_data[(NOUT - 1):0]) & (i_wb_data[(NOUT + 16 - 1):16]) = ", (i_wb_data[(NOUT - 1):0]) & (i_wb_data[(NOUT + 16 - 1):16]))
+            # print("wbgpio.logic0: (o_gpio & (~i_wb_data[(NOUT + 16 - 1):16])) | ((i_wb_data[(NOUT - 1):0]) & (i_wb_data[(NOUT + 16 - 1):16])) = ", (o_gpio & (~i_wb_data[(NOUT + 16 - 1):16])) | ((i_wb_data[(NOUT - 1):0]) & (i_wb_data[(NOUT + 16 - 1):16])))
+            # print("*******************************************************************************")
+            # o_gpio.next = (o_gpio & (~i_wb_data[(NOUT + 16 - 1):16])) | (
+            #             (i_wb_data[(NOUT - 1):0]) & (i_wb_data[(NOUT + 16 - 1):16]))
+            o_gpio.next = i_wb_data[(NOUT - 1):0]
+            # print("wbgpio.logic0: o_gpio.next = ", hex(o_gpio.next), ", ", bin(o_gpio.next))
 
     @always(i_clk.posedge)
     def logic1():
@@ -55,12 +66,12 @@ def wbgpio(i_clk, i_wb_cyc, i_wb_stb, i_wb_we, i_wb_data, o_wb_data, i_gpio, o_g
 
     @always_comb
     def comb0():
-        hi_bits[(NIN - 1):0].next = r_gpio
-        low_bits[(NOUT - 1):0].next = o_gpio
+        hi_bits.next[NIN:] = r_gpio
+        low_bits.next[NOUT:] = o_gpio
         if NIN < 16:
-            hi_bits[15: NIN].next = 0
+            hi_bits.next[16:NIN] = 0
         if NOUT < 16:
-            low_bits[15:NOUT].next = 0
+            low_bits.next[16:NOUT] = 0
 
     @always_comb
     def comb1():
@@ -68,6 +79,7 @@ def wbgpio(i_clk, i_wb_cyc, i_wb_stb, i_wb_we, i_wb_data, o_wb_data, i_gpio, o_g
 
     @always(i_clk.posedge)
     def logic2():
+        # print("wbgpio.logic2: i_wb_stb = ", i_wb_stb, ", i_wb_cyc = ", i_wb_cyc)
         o_ack.next = i_wb_stb and i_wb_cyc
 
     return logic0, logic1, logic2, comb0, comb1

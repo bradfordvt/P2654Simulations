@@ -8,7 +8,7 @@ import threading
 from time import sleep
 
 from hdl.buses.wishbone.wbsyscon.wbsyscon import wbsyscon
-from hdl.boards.gpiotest.ioslave import ioslave
+from hdl.ate.ioslave import ioslave
 from hdl.buses.wishbone.wishbone_master import WishboneMaster
 from hdl.buses.wishbone.wishbone_if import wishbone_if
 
@@ -92,34 +92,22 @@ class ATE:
 
     @block
     def __rtl(self):
-        self.wb_if = wishbone_if()
+        self.wb_if = wishbone_if(self.clk_o, self.rst_o)
         self.master_inst = WishboneMaster("ATE", "WBM0", self.wb_if, monitor=False)
         self.wb_syscon = wbsyscon(self.clk_o, self.rst_o)
         self.slave_inst = ioslave(self.clk_o, self.rst_o,
                                   # Wishbone control
-                                  self.i_wb_cyc, self.i_wb_stb, self.i_wb_we, self.i_wb_addr, self.i_wb_data,
-                                  self.o_wb_ack, self.o_wb_stall, self.o_wb_data,
+                                  # self.i_wb_cyc, self.i_wb_stb, self.i_wb_we, self.i_wb_addr, self.i_wb_data,
+                                  # self.o_wb_ack, self.o_wb_stall, self.o_wb_data,
+                                  self.wb_if.cyc, self.wb_if.stb, self.wb_if.we, self.wb_if.adr, self.wb_if.dat_i,
+                                  self.wb_if.ack, self.wb_if.stall, self.wb_if.dat_o,
                                   # GPIO wires
                                   self.i_gpio,
                                   self.o_gpio,
                                   # parameters
                                   # GPIO parameters
-                                  NGPO=15, NGPI=15,
+                                  NGPO=16, NGPI=16,
                                   monitor=False)
 
-        # build up the netlist for the ATE here
-        @always_comb
-        def netlist():
-            # Wire the WishboneMaster and ioslave to the Wishbone Bus
-            self.wb_if.clk_i.next = self.clk_o
-            self.wb_if.rst_i.next = self.rst_o
-            self.wb_if.ack.next = self.o_wb_ack
-            self.i_wb_addr.next = self.wb_if.adr
-            self.i_wb_cyc.next = self.wb_if.cyc
-            self.i_wb_data.next = self.wb_if.dat_o
-            self.wb_if.dat_i.next = self.o_wb_data
-            self.i_wb_stb.next = self.wb_if.stb
-            self.i_wb_we.next = self.wb_if.we
-
-        return self.slave_inst, self.wb_syscon, self.master_inst.rtl(), netlist, self.board_inst.rtl()
+        return self.slave_inst, self.wb_syscon, self.master_inst.rtl(), self.board_inst.rtl()
 

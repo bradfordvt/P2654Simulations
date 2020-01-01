@@ -17,9 +17,9 @@ WB_SEL_WIDTH = 4
 
 
 class wishbone_if:
-    def __init__(self):
-        self.rst_i = Signal(bool(0))
-        self.clk_i = Signal(bool(0))
+    def __init__(self, clk, rst):
+        self.rst_i = rst
+        self.clk_i = clk
         self.adr = Signal(intbv(0)[WB_ADR_WIDTH:])
         self.tga = Signal(intbv(0)[WB_TGA_WIDTH:])
         self.dat_i = Signal(intbv(0)[WB_DAT_WIDTH:])
@@ -37,3 +37,4 @@ class wishbone_if:
         self.rty = Signal(bool(0))
         self.cti = Signal(intbv(0)[WB_CTI_WIDTH:])
         self.tgc = Signal(intbv(0)[WB_TGC_WIDTH:])
+        self.stall = Signal(bool(0))

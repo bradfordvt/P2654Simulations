@@ -41,8 +41,10 @@ def ioslave(i_clk, i_reset,
 
     @always(i_clk.posedge)
     def comb0():
-        if i_wb_stb and (~i_wb_we):
-            if i_wb_addr[32:12] == intbv(1)[21:]:  # Address is in range of IO block
+        # if i_wb_stb and (~i_wb_we):
+        if i_wb_stb and not i_wb_we:
+            # print("comb0: i_wb_addr = ", hex(i_wb_addr), ", ", bin(i_wb_addr))
+            if i_wb_addr[32:12] == intbv(1)[20:]:  # Address is in range of IO block
                 if i_wb_addr[9:] == intbv(0)[9:] and i_wb_addr[10] == 0:  # GPIO register
                     r_wb_data.next = gpio_data
                 else:
@@ -51,27 +53,30 @@ def ioslave(i_clk, i_reset,
     @always(i_clk.posedge)
     def comb1():
         gpio_cyc.next = False
-        if i_wb_addr[32:12] == intbv(1)[21:]:  # Address is in range of IO block
+        if i_wb_addr[32:12] == intbv(1)[20:]:  # Address is in range of IO block
             if i_wb_addr[9:] == intbv(0)[9:] and i_wb_addr[10] == 0:  # GPIO register
+                # print("ioslave.comb1: gpio_ack = ", gpio_ack)
                 r_wb_ack.next = gpio_ack
 
     @always(i_clk.posedge)
     def comb2():
         gpio_cyc.next = False
-        if i_wb_addr[32:12] == intbv(1)[21:]:  # Address is in range of IO block
+        if i_wb_addr[32:12] == intbv(1)[20:]:  # Address is in range of IO block
             if i_wb_addr[9:] == intbv(0)[9:] and i_wb_addr[10] == 0:  # GPIO register
                 gpio_cyc.next = i_wb_cyc
 
     @always(i_clk.posedge)
     def logic0():
         # o_wb_ack.next = i_wb_stb and i_wb_cyc
-        if i_wb_addr[32:12] == intbv(1)[21:]:
+        if i_wb_addr[32:12] == intbv(1)[20:]:
             o_wb_data.next = r_wb_data
         o_wb_stall.next = False
 
     @always(i_clk.posedge)
     def logic1():
-        if i_wb_addr[32:12] == intbv(1)[21:]:
+        # print("ioslave.logic1: i_wb_addr[32:12] = ", i_wb_addr[32:12], ", compval = ", intbv(1)[20:])
+        # print("ioslave.logic1: r_wb_ack = ", r_wb_ack)
+        if i_wb_addr[32:12] == intbv(1)[20:]:
             o_wb_ack.next = r_wb_ack
 
     return logic0, logic1, comb0, comb1, comb2, gpiodev

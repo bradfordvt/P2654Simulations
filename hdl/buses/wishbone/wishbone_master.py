@@ -4,7 +4,9 @@ See the licence file in the top directory
 """
 
 from myhdl import *
-from asyncio import Queue as pyQueue
+from time import sleep
+# from asyncio import Queue as pyQueue
+from queue import Queue as pyQueue
 from hdl.common.containers import Queue as myQueue
 # from hdl.buses.wishbone.wishbone_if import wishbone_if
 
@@ -22,12 +24,14 @@ class WishboneMaster:
         self.error = None
         self.value = None
         # transaction information (simulation only)
-        self._write = False    # write command in progress
-        self._read = False     # read command in progress
+        # self._write = False    # write command in progress
+        # self._read = False     # read command in progress
+        self._write = Signal(bool(0))    # write command in progress
+        self._read = Signal(bool(0))     # read command in progress
         self._address = 0      # address of current/last transaction
         self._data = 0         # ??? @todo: is this used ???
-        self._write_data = -1  # holds the data written
-        self._read_data = -1   # holds the data read
+        self._write_data = 0  # holds the data written
+        self._read_data = 0   # holds the data read
         # Utility signals
         self.inprog = Signal(bool(0))
         self.iswrite = Signal(bool(0))
@@ -47,14 +51,19 @@ class WishboneMaster:
         @always_comb
         def _assign():
             if self._write or self._read:
+                # print("wb.rtl._assign: self._address = ", hex(self._address))
+                # print("wb.rtl._assign: self._write_data = ", hex(self._write_data))
+                # print("wb.rtl._assign: self._write = ", self._write, ", self._read = ", self._read)
                 self.wb_interface.cyc.next = True
                 self.wb_interface.we.next = True if self._write else False
                 self.wb_interface.stb.next = True
             elif self.inprog:
+                # print("wb.rtl._assign: inprog")
                 self.wb_interface.cyc.next = True
                 self.wb_interface.we.next = True if self.iswrite else False
                 self.wb_interface.stb.next = True
             else:
+                # print("wb.rtl._assign: else")
                 self.wb_interface.cyc.next = False
                 self.wb_interface.we.next = False
                 self.wb_interface.stb.next = False
@@ -66,14 +75,17 @@ class WishboneMaster:
         @always(self.wb_interface.clk_i.posedge)
         def _delay():
             if not self.inprog and (self._write or self._read):
+                # print("wb._delay: self.inprog = ", self.inprog, ", self._write = ", self._write, ", self._read = ", self._read)
                 self.inprog.next = True
                 self.iswrite.next = self._write
             if self.inprog and self.wb_interface.ack:
+                # print("wb._delay: self.inprog = ", self.inprog, ", self.wb_interface.ack = ", self.wb_interface.ack)
                 self.inprog.next = False
                 self.iswrite.next = False
 
         @always_comb
         def _done():
+            # print("wb._done: entered")
             self.done.next = not self.inprog
 
         @instance
@@ -82,58 +94,79 @@ class WishboneMaster:
             while 1:
                 yield self.Q.get()
                 cmd = self.Q.item
+                # print("cmd = ", cmd)
                 if cmd[0] == "reset":
+                    # print("Processing Reset")
                     self.localReset.next = bool(1)
                     yield self.wb_interface.rst_i.posedge
                     self.localReset.next = bool(0)
                 elif cmd[0] == "write":
-                    self._write = True
-                    self._read = False
+                    # print("Processing Write")
+                    self._write.next = True
+                    self._read.next = False
                     self._address = cmd[1]
                     self._write_data = cmd[2]
                     self._read_data = False
+                    # yield self.wb_interface.clk_i.posedge
+                    yield self.done.negedge
                     to = 0
-                    yield
+                    # print("self.done = ", self.done)
                     while not self.done and to < self.timeout:
                         yield self.wb_interface.clk_i.posedge
                         to += 1
-                    self._write = False
-                    self._read = False
+                    # print("to = ", to)
+                    self._write.next = False
+                    self._read.next = False
                     if to == self.timeout:
                         self.R.put(("ERR", "TIMEOUT"))
                     else:
                         # Return status
                         self.R.put(("OK", 0))
                 elif cmd[0] == "read":
-                    self._write = False
-                    self._read = True
+                    # print("Processing Read")
+                    self._write.next = False
+                    self._read.next = True
                     self._address = cmd[1]
                     self._read_data = None
                     self._write_data = False
+                    # yield self.wb_interface.clk_i.posedge
+                    yield self.done.negedge
                     to = 0
-                    yield
                     while not self.done and to < self.timeout:
                         yield self.wb_interface.clk_i.posedge
                         to += 1
                     if self._read:
                         self._read_data = int(self.wb_interface.dat_o)
-                    self._write = False
-                    self._read = False
+                    self._write.next = False
+                    self._read.next = False
                     if to == self.timeout:
                         self.R.put(("ERR", "TIMEOUT"))
                     else:
                         # Return value
                         self.R.put(("VAL", self._read_data))
                 elif cmd[0] == "terminate":
+                    # print("Processing terminate")
                     self.R.put(("DONE", 0))
                     break
+                else:
+                    print("Invalid message sent!")
             raise StopSimulation()
 
-        return stimulus, _reset, _assign, _delay, _done
+        @instance
+        def monitor_done():
+            print("\t\tWishboneMaster({:s}): self.done".format(self.path + '.' + self.name), self.done)
+            while 1:
+                yield self.done
+                print("\t\tWishboneMaster({:s}): self.done".format(self.path + '.' + self.name), self.done)
+
+        return stimulus, _reset, _assign, _delay, _done , \
+        # return stimulus, _reset, _assign, _delay, _done, \
+        #         monitor_done
 
     def write(self, addr, data):
         self.Q.put(("write", addr, data))
-        yield delay(100)
+        # yield delay(100)
+        sleep(1)
         ret = self.R.get()
         if ret[0] == "ERR":
             self.error = ret[1]
@@ -146,7 +179,8 @@ class WishboneMaster:
 
     def read(self, addr):
         self.Q.put(("read", addr, 0))
-        yield delay(100)
+        # yield delay(100)
+        sleep(1)
         ret = self.R.get()
         if ret[0] == "ERR":
             self.error = ret[1]
