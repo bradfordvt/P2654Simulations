@@ -84,7 +84,8 @@ class LEDThread (threading.Thread):
         print("Exiting control_led")
 
     def display_window(self):
-        self.window = tk.Tk()
+        # self.window = tk.Tk()
+        self.window = tk.Toplevel()
         self.window.title(self.name)
         # self.window.geometry("300x300")
         self.window.geometry("150x150")
