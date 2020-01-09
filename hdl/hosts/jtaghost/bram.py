@@ -11,7 +11,7 @@ class RAMInterface:
         self.clk = Signal(bool(0))
         self.reset_n = ResetSignal(1, 0, True)
         self.Write = Signal(bool(0))
-        self.Awr = Signal(bool(0))
+        self.Awr = Signal(intbv(0)[addr_width:])
         self.Ard = Signal(intbv(0)[addr_width:])
         self.Din = Signal(intbv(0)[data_width:])
         self.Dout = Signal(intbv(0)[data_width:])
@@ -30,12 +30,12 @@ def RAM(ram_interface):
     @always_seq(ram_interface.clk.posedge, reset=ram_interface.reset_n)
     def memory_process():
         if ram_interface.Write == 1:
-            memory[ram_interface.Awr].next = ram_interface.Din
+            memory[ram_interface.Awr.val].next = ram_interface.Din
         # print("Ard = ", ram_interface.Ard)
 
     @always_comb
     def out_process():
-        ram_interface.Dout.next = memory[ram_interface.Ard]
+        ram_interface.Dout.next = memory[ram_interface.Ard.val]
 
     return memory_process, out_process
 

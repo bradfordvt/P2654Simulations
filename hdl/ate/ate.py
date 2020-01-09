@@ -104,6 +104,12 @@ class ATE:
                                   # GPIO wires
                                   self.i_gpio,
                                   self.o_gpio,
+                                  # JTAG wires
+                                  self.tck,
+                                  self.tms,
+                                  self.trst,
+                                  self.tdi,
+                                  self.tdo,
                                   # parameters
                                   # GPIO parameters
                                   NGPO=16, NGPI=16,
