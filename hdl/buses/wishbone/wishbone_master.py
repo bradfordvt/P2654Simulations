@@ -99,7 +99,7 @@ class WishboneMaster:
                     yield self.wb_interface.rst_i.posedge
                     self.localReset.next = bool(0)
                 elif cmd[0] == "write":
-                    # print("Processing Write")
+                    print("Processing Write")
                     self._write.next = True
                     self._read.next = False
                     self._address = cmd[1]
@@ -114,14 +114,14 @@ class WishboneMaster:
                     while not self.done and to < self.timeout:
                         yield self.wb_interface.clk_i.posedge
                         to += 1
-                    # print("to = ", to)
+                    print("to = ", to)
                     if to == self.timeout:
                         self.R.put(("ERR", "TIMEOUT"))
                     else:
                         # Return status
                         self.R.put(("OK", 0))
                 elif cmd[0] == "read":
-                    # print("Processing Read")
+                    print("Processing Read")
                     self._write.next = False
                     self._read.next = True
                     self._address = cmd[1]
@@ -183,7 +183,7 @@ class WishboneMaster:
         # yield delay(100)
         sleep(1)
         ret = self.R.get()
-        # print("ret = ", ret)
+        print("ret = ", ret)
         if ret[0] == "ERR":
             self.error = ret[1]
             return False

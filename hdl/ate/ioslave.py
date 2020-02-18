@@ -2,6 +2,22 @@
 Copyright (c) 2019 Bradford G. Van Treuren
 See the licence file in the top directory
 #########
+TPSP
+#########
+Address 0x00001C10 TPSP
+#########
+SPI
+#########
+Address 0x00001C08 SPI
+Address 0x00001C0F SPI
+#########
+I2C
+#########
+Address 0x00001C00 I2C Data Transmit Register
+Address 0x00001C01 I2C Data Receive Register
+Address 0x00001C02 I2C Control Register
+Address 0x00001C03 I2C Status Register
+#########
 JTAG
 #########
 Address 0x00001000 - 0x000013FF JTAG Vector Buffer Memory (8-bit data bus as lowest 8 bits)
@@ -19,6 +35,7 @@ Address 0x00001800 GPIO register
 from myhdl import *
 from hdl.buses.wishbone.wbgpio.wbgpio import wbgpio
 from hdl.buses.wishbone.wbjtag.wbjtag import wbjtag
+from hdl.buses.wishbone.wbi2c.wbi2chost import wbi2chost
 
 
 @block
@@ -35,27 +52,41 @@ def ioslave(i_clk, i_reset,
             trst,
             tdi,
             tdo,
+            # I2C wires
+            sck_o,
+            sck_i,
+            sck_e,
+            sda_o,
+            sda_i,
+            sda_e,
             # parameters
             # GPIO parameters
             NGPO=15, NGPI=15,
             monitor=False):
     gpio_data = Signal(intbv(0)[32:])
     jtag_data = Signal(intbv(0)[32:])
+    i2c_data = Signal(intbv(0)[32:])
     r_wb_data = Signal(intbv(0)[32:])
     gpio_int = Signal(bool(0))
     r_wb_ack = Signal(bool(0))
     gpio_ack = Signal(bool(0))
     jtag_ack = Signal(bool(0))
+    i2c_ack = Signal(bool(0))
     gpio_cyc = Signal(bool(0))
     jtag_cyc = Signal(bool(0))
+    i2c_cyc = Signal(bool(0))
     gpio_stb = Signal(bool(0))
     jtag_stb = Signal(bool(0))
+    i2c_stb = Signal(bool(0))
 
-    gpiodev = wbgpio(i_clk, i_wb_cyc, gpio_stb,
+    gpiodev = wbgpio(i_clk, gpio_cyc, gpio_stb,
                      i_wb_we, i_wb_data, gpio_data, i_gpio, o_gpio, gpio_ack, gpio_int, NIN=NGPI, NOUT=NGPO)
-    jtagdev = wbjtag(i_clk, i_reset, i_wb_cyc, jtag_stb,
+    jtagdev = wbjtag(i_clk, i_reset, jtag_cyc, jtag_stb,
                      i_wb_we, i_wb_addr, i_wb_data, jtag_data, jtag_ack,
                      tdi, tdo, tck, tms, trst, monitor=False)
+    i2cdev = wbi2chost(i_clk, i_reset, i2c_cyc, i2c_stb,
+                   i_wb_we, i_wb_addr, i_wb_data, i2c_data, i2c_ack,
+                   sck_o, sck_i, sck_e, sda_o, sda_i, sda_e)
 
     @always(i_clk.posedge)
     def comb0():
@@ -67,13 +98,13 @@ def ioslave(i_clk, i_reset,
                     r_wb_data.next = jtag_data
                 elif i_wb_addr[9:] == intbv(0)[9:] and i_wb_addr[10] == 0:  # GPIO register
                     r_wb_data.next = gpio_data
+                elif i_wb_addr[11] == 1 and i_wb_addr[10] == 1:  # I2C register
+                    r_wb_data.next = i2c_data
                 else:
                     r_wb_data.next = intbv(0)[32:]
 
     @always(i_clk.posedge)
     def comb1():
-        gpio_cyc.next = False
-        jtag_cyc.next = False
         if i_wb_addr[32:12] == intbv(1)[20:]:  # Address is in range of IO block
             if i_wb_addr[11] == 0:  # JTAGCtrlMaster block of registers
                 # print("ioslave.comb1: jtag_ack = ", jtag_ack)
@@ -81,16 +112,22 @@ def ioslave(i_clk, i_reset,
             elif i_wb_addr[9:] == intbv(0)[9:] and i_wb_addr[10] == 0:  # GPIO register
                 # print("ioslave.comb1: gpio_ack = ", gpio_ack)
                 r_wb_ack.next = gpio_ack
+            elif i_wb_addr[11] == 1 and i_wb_addr[10] == 1:  # I2C register
+                # print("ioslave.comb1: i2c_ack = ", i2c_ack)
+                r_wb_ack.next = i2c_ack
 
     @always(i_clk.posedge)
     def comb2():
         gpio_cyc.next = False
         jtag_cyc.next = False
+        i2c_cyc.next = False
         if i_wb_addr[32:12] == intbv(1)[20:]:  # Address is in range of IO block
             if i_wb_addr[11] == 0:  # JTAGCtrlMaster block of registers
                 jtag_cyc.next = i_wb_cyc
             elif i_wb_addr[9:] == intbv(0)[9:] and i_wb_addr[10] == 0:  # GPIO register
                 gpio_cyc.next = i_wb_cyc
+            elif i_wb_addr[11] == 1 and i_wb_addr[10] == 1:  # I2C register
+                i2c_cyc.next = i_wb_cyc
 
     @always(i_clk.posedge)
     def logic0():
@@ -111,5 +148,6 @@ def ioslave(i_clk, i_reset,
     def comb3():
         gpio_stb.next = i_wb_stb and (i_wb_addr[32:] == intbv(0x00001800))
         jtag_stb.next = i_wb_stb and (i_wb_addr[32:] > intbv(0x00000FFF)) and (i_wb_addr[32:] < intbv(0x00001405))
+        i2c_stb.next = i_wb_stb and (i_wb_addr[32:] > intbv(0x00001BFF)) and (i_wb_addr[32:] < intbv(0x00001C05))
 
-    return logic0, logic1, comb3, comb0, comb1, comb2, gpiodev, jtagdev
+    return logic0, logic1, comb3, comb0, comb1, comb2, gpiodev, jtagdev, i2cdev

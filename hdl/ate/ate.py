@@ -110,6 +110,13 @@ class ATE:
                                   self.trst,
                                   self.tdi,
                                   self.tdo,
+                                  # I2C wires
+                                  self.sck_o,
+                                  self.sck_i,
+                                  self.sck_e,
+                                  self.sda_o,
+                                  self.sda_i,
+                                  self.sda_e,
                                   # parameters
                                   # GPIO parameters
                                   NGPO=16, NGPI=16,
