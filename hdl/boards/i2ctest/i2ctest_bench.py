@@ -402,105 +402,143 @@ def i2c_read_reg(ate_inst, dev_address, reg_address):
     return read_receive_register(ate_inst)
 
 
-# def i2c_multibyte_write(ate_inst, dev_address, reg_address, data):
-#     print("I2C Write: At [{0:x}] = {0:x}".format(reg_address, data))
-#     # i2c address
-#     write_transmit_register(ate_inst, (dev_address << 1) & 0xFE)
-#     write_command_register(ate_inst, 0x90)
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#     # slave reg address
-#     write_transmit_register(ate_inst, reg_address)
-#     write_command_register(ate_inst, 0x10)  # WR
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#
-#     # data[31:24]
-#     write_transmit_register(ate_inst, (data >> 24) & 0xFF)
-#     write_command_register(ate_inst, 0x10)  # WR
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#
-#     # data[23:16]
-#     write_transmit_register(ate_inst, (data >> 16) & 0xFF)
-#     write_command_register(ate_inst, 0x10)  # WR
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#
-#     # data[15:8]
-#     write_transmit_register(ate_inst, (data >> 8) & 0xFF)
-#     write_command_register(ate_inst, 0x10)  # WR
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#
-#     # data[7:0]
-#     write_transmit_register(ate_inst, data & 0xFF)
-#     write_command_register(ate_inst, 0x50)  # WR + STOP
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#
-#
-# def i2c_multibyte_read(ate_inst, dev_address, reg_address):
-#     retval = 0
-#     # i2c address
-#     write_transmit_register(ate_inst, (dev_address << 1) & 0xFE)
-#     write_command_register(ate_inst, 0x90)
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#     # slave reg address
-#     write_transmit_register(ate_inst, reg_address)
-#     write_command_register(ate_inst, 0x10)  # WR
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#
-#     # i2c address
-#     write_transmit_register(ate_inst, (dev_address << 1) | 1)
-#     write_command_register(ate_inst, 0x90)
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#
-#     # data[31:24]
-#     write_command_register(ate_inst, 0x20)  # read
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#     value = read_receive_register(ate_inst)
-#     retval = (value << 24) & 0xFF000000
-#
-#     # data[23:16]
-#     write_command_register(ate_inst, 0x20)  # read
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#     value = read_receive_register(ate_inst)
-#     retval = retval | ((value << 16) & 0x00FF0000)
-#
-#     # data[15:8]
-#     write_command_register(ate_inst, 0x20)  # read
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#     value = read_receive_register(ate_inst)
-#     retval = retval | ((value << 8) & 0x0000FF00)
-#
-#     # data[7:0]
-#     write_command_register(ate_inst, 0x28)  # read + STOP + NACK
-#     dataByteRead = read_status_register(ate_inst)
-#     while dataByteRead & 0x02:  # while trans in progress
-#         dataByteRead = read_status_register(ate_inst)
-#     value = read_receive_register(ate_inst)
-#     retval = retval | (value & 0x000000FF)
-#     print("I2C Read: At [{0:x}] = {0:x}".format(reg_address, retval))
-#     return retval
+def i2c_multibyte_write(ate_inst, dev_address, reg_address, data):
+    print("I2C Write: At [{0:x}] = {0:x}".format(reg_address, data))
+    # i2c address
+    write_transmit_register(ate_inst, (dev_address << 1) & 0xFE)
+    write_control_register(ate_inst, 0x0B)  # START & WRITE & EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        print("Acknowledge error detected during device address transmission.")
+        return False
+    # write out the register index
+    write_transmit_register(ate_inst, reg_address)
+    write_control_register(ate_inst, 0x03)  # WRITE & EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        print("Acknowledge error detected during register address transmission.")
+        return False
+    # data[31:24]
+    write_transmit_register(ate_inst, (data >> 24) & 0xFF)
+    write_control_register(ate_inst, 0x03)  # WRITE & EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        print("Acknowledge error detected during data transmission.")
+        return False
+    # data[23:16]
+    write_transmit_register(ate_inst, (data >> 16) & 0xFF)
+    write_control_register(ate_inst, 0x03)  # WRITE & EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        print("Acknowledge error detected during data transmission.")
+        return False
+    # data[15:8]
+    write_transmit_register(ate_inst, (data >> 8) & 0xFF)
+    write_control_register(ate_inst, 0x03)  # WRITE & EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        print("Acknowledge error detected during data transmission.")
+        return False
+    # data[7:0]
+    write_transmit_register(ate_inst, data & 0xFF)
+    write_control_register(ate_inst, 0x13)  # WRITE & EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        print("Acknowledge error detected during data transmission.")
+        return False
+    return True
+
+
+def i2c_multibyte_read(ate_inst, dev_address, reg_address):
+    retval = 0
+    # write out device address
+    write_transmit_register(ate_inst, (dev_address << 1) & 0xFE)
+    write_control_register(ate_inst, 0x0B)  # START & WRITE & EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        return 0xFF00
+    # write out the register index
+    write_transmit_register(ate_inst, reg_address)
+    write_control_register(ate_inst, 0x03)  # WRITE & EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        return 0xFF00
+    # write out device address with read
+    write_transmit_register(ate_inst, (dev_address << 1) | 1)
+    write_control_register(ate_inst, 0x0B)  # START & WRITE & EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        return 0xFF00
+    # read byte from slave data[31:24]
+    write_control_register(ate_inst, 0x01)  # EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        return 0xFF00
+    value = read_receive_register(ate_inst)
+    retval = (value << 24) & 0xFF000000
+
+    # read byte from slave data[23:16]
+    write_control_register(ate_inst, 0x01)  # EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        return 0xFF00
+    value = read_receive_register(ate_inst)
+    retval = retval | ((value << 16) & 0x00FF0000)
+    # read byte from slave data[15:8]
+    write_control_register(ate_inst, 0x01)  # EXECUTE
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        return 0xFF00
+    value = read_receive_register(ate_inst)
+    retval = retval | ((value << 8) & 0x0000FF00)
+    # read byte from slave data[7:0]
+    write_control_register(ate_inst, 0x15)  # EXECUTE & MASTER_ACK & STOP
+    status = read_status_register(ate_inst)
+    while status & 0x01:  # busy set
+        status = read_status_register(ate_inst)
+    # check for ack error
+    if status & 0x02:
+        return 0xFF00
+    value = read_receive_register(ate_inst)
+    retval = retval | (value & 0x000000FF)
+    print("I2C Read: At [{0:x}] = {0:x}".format(reg_address, retval))
+    return retval
 
 
 def i2ctest_bench():
@@ -555,9 +593,9 @@ def i2ctest_bench():
     i2c_write_reg(ate_inst, 0x3C, 0x01, 0xA5)
     assert(i2c_read_reg(ate_inst, 0x3C, 0x01) == 0xA5)
 
-    # i2c_multibyte_write(ate_inst, 0x3C, 0, 0x89abcdef)
-    # assert(i2c_multibyte_read(ate_inst, 0x3C, 0) == 0x89abcdef)
-    # assert(i2c_multibyte_read(ate_inst, 0x3C, 4) == 0x12345678)
+    i2c_multibyte_write(ate_inst, 0x3C, 0, 0x89abcdef)
+    assert(i2c_multibyte_read(ate_inst, 0x3C, 0) == 0x89abcdef)
+    assert(i2c_multibyte_read(ate_inst, 0x3C, 4) == 0x12345678)
 
     # End the simulation
     assert(ate_inst.terminate())

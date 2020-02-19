@@ -105,6 +105,7 @@ from hdl.hosts.i2chost.i2c_interface import i2c_if
 # import os
 # import os.path
 from hdl.clients.I2CClient.i2cslave_RW import i2cslave_RW
+from hdl.clients.I2CClient.registerInterface import registerInterface
 
 
 period = 20  # clk frequency = 50 MHz
@@ -173,14 +174,22 @@ class I2CDevice:
         # myReg0 = Signal(intbv(0)[8:])
         # i2c_client_inst = i2cslavetop(self.clk_o, self.rst_o, i2c_interface_c.sda_i, i2c_interface_c.sda_o,
         #                               i2c_interface_c.sda_e, i2c_interface_c.scl_i, myReg0)
-        reg_00 = Signal(intbv(0)[8:])
-        reg_01 = Signal(intbv(0)[8:])
-        reg_02 = Signal(intbv(0)[8:])
-        reg_00_latch = Signal(bool(0))
-        reg_01_latch = Signal(bool(0))
-        reg_02_latch = Signal(bool(0))
+        myReg0 = Signal(intbv(0)[8:])
+        myReg1 = Signal(intbv(0)[8:])
+        myReg2 = Signal(intbv(0)[8:])
+        myReg3 = Signal(intbv(0)[8:])
+        myReg4 = Signal(intbv(0x12)[8:])
+        myReg5 = Signal(intbv(0x34)[8:])
+        myReg6 = Signal(intbv(0x56)[8:])
+        myReg7 = Signal(intbv(0x78)[8:])
+        writeEn = Signal(bool(0))
+        dataIn = Signal(intbv(0)[8:])
+        dataOut = Signal(intbv(0)[8:])
+        regAddr = Signal(modbv(0)[8:])
         i2c_client_inst = i2cslave_RW(i2c_interface_c.scl_i, i2c_interface_c.sda_i, i2c_interface_c.sda_e, self.reset_n,
-                                      reg_00, reg_01, reg_02, reg_00_latch, reg_01_latch, reg_02_latch)
+                                      dataIn, dataOut, regAddr, writeEn, autoincrement=True)
+        register_interface_inst = registerInterface(self.clk_o, regAddr, dataOut, writeEn, dataIn,
+                                                    myReg0, myReg1, myReg2, myReg3, myReg4, myReg5, myReg6, myReg7)
 
         @instance
         def power_on_reset_gen():
@@ -243,6 +252,6 @@ class I2CDevice:
         #         self.rom_address.next = self.read_address
         #         self.read_data.next = self.rom_dout
 
-        return netlist, i2c_client_inst, power_on_reset_gen
+        return netlist, i2c_client_inst, power_on_reset_gen, register_interface_inst
                # update_detector4, update_detector5, update_detector6, client_write, client_read
 
