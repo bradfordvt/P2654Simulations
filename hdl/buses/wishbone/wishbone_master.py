@@ -92,7 +92,7 @@ class WishboneMaster:
             while 1:
                 yield self.Q.get()
                 cmd = self.Q.item
-                # print("cmd = ", cmd)
+                print("cmd = (", cmd[0], " ", hex(cmd[1]), " ",  hex(cmd[2]), ")")
                 if cmd[0] == "reset":
                     # print("Processing Reset")
                     self.localReset.next = bool(1)
@@ -114,7 +114,7 @@ class WishboneMaster:
                     while not self.done and to < self.timeout:
                         yield self.wb_interface.clk_i.posedge
                         to += 1
-                    print("to = ", to)
+                    # print("to = ", to)
                     if to == self.timeout:
                         self.R.put(("ERR", "TIMEOUT"))
                     else:
@@ -167,7 +167,9 @@ class WishboneMaster:
     def write(self, addr, data):
         self.Q.put(("write", addr, data))
         # yield delay(100)
-        sleep(1)
+        sleep(0.1)
+        while not self.Q.empty():
+            pass
         ret = self.R.get()
         if ret[0] == "ERR":
             self.error = ret[1]
@@ -181,9 +183,11 @@ class WishboneMaster:
     def read(self, addr):
         self.Q.put(("read", addr, 0))
         # yield delay(100)
-        sleep(1)
+        sleep(0.1)
+        while not self.Q.empty():
+            pass
         ret = self.R.get()
-        print("ret = ", ret)
+        print("ret = (", ret[0], " ", hex(ret[1]), ")")
         if ret[0] == "ERR":
             self.error = ret[1]
             return False

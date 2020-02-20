@@ -4,7 +4,7 @@ See the licence file in the top directory
 """
 
 from myhdl import *
-from p2654.core.utils import trigger
+from hdl.common.utils import trigger
 
 
 class Queue:
@@ -23,3 +23,6 @@ class Queue:
         if not self.list:
             yield self.sync
         self.item = self.list.pop(0)
+
+    def empty(self):
+        return len(self.list) == 0

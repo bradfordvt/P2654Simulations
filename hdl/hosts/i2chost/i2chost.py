@@ -15,6 +15,7 @@ def i2chost(clk, reset, tx, rx, control, status, scl_i, scl_o, scl_oen, sda_i, s
     # Status register bit signals
     busy = Signal(bool(0))
     ack_error = Signal(bool(0))
+    done = Signal(bool(0))
     # Internal signals
     execute_latched = Signal(bool(0))
     data_state = Signal(intbv(0, min=0, max=27))
@@ -33,7 +34,8 @@ def i2chost(clk, reset, tx, rx, control, status, scl_i, scl_o, scl_oen, sda_i, s
         stop.next = control[4]
         status.next[0] = busy
         status.next[1] = ack_error
-        status.next[2] = scl_i
+        status.next[2] = done
+        status.next[3] = scl_i
 
     @always(execute.posedge, busy.posedge)
     def execute_control():
@@ -47,12 +49,14 @@ def i2chost(clk, reset, tx, rx, control, status, scl_i, scl_o, scl_oen, sda_i, s
     @always(clk.posedge, reset.posedge)
     def data_cycle():
         if data_state == idle_wait:
+            done.next = True
             ack_error.next = False
             scl_oen.next = False
             scl_o.next = False
             sda_oen.next = False
             sda_o.next = False
             if execute_latched:
+                done.next = False
                 busy.next = True
                 if start:
                     data_state.next = start1
