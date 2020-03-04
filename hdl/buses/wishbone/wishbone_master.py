@@ -35,7 +35,7 @@ class WishboneMaster:
         self.iswrite = Signal(bool(0))
         self.done = Signal(bool(0))
         # bus transaction timeout in clock ticks
-        self.timeout = 100
+        self.timeout = 10000
 
     @block
     def rtl(self, monitor=False):
@@ -107,6 +107,7 @@ class WishboneMaster:
                     self._read_data = False
                     # yield self.wb_interface.clk_i.posedge
                     yield self.inprog.posedge
+                    yield self.done.negedge
                     self._write.next = False
                     self._read.next = False
                     to = 0
@@ -114,7 +115,7 @@ class WishboneMaster:
                     while not self.done and to < self.timeout:
                         yield self.wb_interface.clk_i.posedge
                         to += 1
-                    # print("to = ", to)
+                    print("to = ", to)
                     if to == self.timeout:
                         self.R.put(("ERR", "TIMEOUT"))
                     else:
@@ -128,6 +129,7 @@ class WishboneMaster:
                     self._read_data = None
                     self._write_data = False
                     # yield self.wb_interface.clk_i.posedge
+                    yield self.inprog.posedge
                     yield self.done.negedge
                     to = 0
                     while not self.done and to < self.timeout:
