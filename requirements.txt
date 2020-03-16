@@ -1,2 +1,3 @@
+telnetsrv
 myhdl >= 0.11
 Pillow >= 6.0.0

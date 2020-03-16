@@ -189,11 +189,11 @@ class WishboneMaster:
         while not self.Q.empty():
             pass
         ret = self.R.get()
-        print("ret = (", ret[0], " ", hex(ret[1]), ")")
         if ret[0] == "ERR":
             self.error = ret[1]
             return False
         elif ret[0] == "VAL":
+            print("ret = (", ret[0], " ", hex(ret[1]), ")")
             self.value = ret[1]
             return True
         else:

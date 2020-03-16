@@ -5,22 +5,21 @@ import os
 from platform import system, node
 import sys
 
-if sys.version_info > (3, 0):
-    import socketserver
-    from telnetsrv.threaded import TelnetHandler
-    from telnetsrv.telnetsrvlib import command
-else:
-    import SocketServer
-    from telnetsrv.threaded import TelnetHandler
-    from telnetsrv.telnetsrvlib import command
+
+import socketserver
+from telnetsrv.threaded import TelnetHandler
+from telnetsrv.telnetsrvlib import command
 
 import threading
 import string
+from hdl.ate.ate import ATE
+from hdl.hosts.jtaghost.JTAG_Ctrl_Master import SHIFT_DR, SHIFT_IR, RUN_TEST_IDLE
+from hdl.boards.spitest.spitest import SPITest
+from hdl.boards.i2ctest.i2ctest import I2CTest
+from hdl.boards.jtagtest.jtagtest import JTAGTest
 
-if sys.version_info > (3, 0):
-    import queue
-else:
-    import Queue
+import queue
+
 
 TELNET_IP_BINDING = ""  # all
 TELNET_PORT_BINDING = 5023
@@ -33,15 +32,17 @@ if not TELNET_IP_BINDING:
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+boards = {
+    "SPITest": SPITest(),
+    "I2CTest": I2CTest(),
+    "JTAGTest": JTAGTest()
+}
+
 
 class SimulatorHandler(TelnetHandler):
     # -- Override items to customize the server --
-    if sys.version_info > (3, 0):
-        WELCOME = 'You have connected to the P2654Simulation server.'
-        PROMPT = "P2654> "
-    else:
-        WELCOME = 'You have connected to the P2654Simulation test server.'
-        PROMPT = "P2654> "
+    WELCOME = 'You have connected to the P2654Simulation server.'
+    PROMPT = "P2654> "
     # authNeedUser = True
     # authNeedPass = True
     # parseState = {'START': 0, 'PSTART': 1, 'PIPE': 2, 'CSTART': 3, 'CARRIER': 4, 'BSTART': 5, 'BW': 6, 'CSTOP': 7,
@@ -52,38 +53,71 @@ class SimulatorHandler(TelnetHandler):
     # parseIntListState = {'START': 0, 'LSTART': 1, 'PARAM': 2, 'SEPERATOR': 3, 'STOP': 4}
 
     def __init__(self, request, client_address, server):
+        self.start_state = False
+        self.board_inst = None
+        self.ate_inst = None
         TelnetHandler.__init__(self, request, client_address, server)
 
     def __mw(self, adr, data):
-        print("MW(", adr, ", ", data, ")")
+        if self.ate_inst.write(adr, data):
+            return "OK"
+        else:
+            return self.ate_inst.get_error()
 
     def __mr(self, adr):
-        print("MR(", adr, ")")
-        return "42"
+        if self.ate_inst.read(adr):
+            return "{:8X}".format(self.ate_inst.get_value())
+        else:
+            return self.ate_inst.get_error()
 
     def __mrmw(self, adr, data):
-        print("MRMW(", adr, ", ", data, ")")
-        return "43"
+        if self.ate_inst.read(adr):
+            value = self.ate_inst.get_value()
+            if self.ate_inst.write(adr, data):
+                return "{:8X}".format(value)
+            else:
+                return self.ate_inst.get_error()
+        else:
+            return self.ate_inst.get_error()
 
     def __mmw(self, adr, cnt, data):
-        print("MMW(", adr, ", ", cnt, end="")
-        for s in data:
-            print(", ", s, end="")
-        print(")")
+        for i in range(cnt):
+            if not self.ate_inst.write(adr, data[i]):
+                return self.ate_inst.get_error()
+        return "OK"
 
     def __mmwi(self, adr, cnt, data):
-        print("MMWI(", adr, ", ", cnt, end="")
-        for s in data:
-            print(", ", s, end="")
-        print(")")
+        for i in range(cnt):
+            if not self.ate_inst.write(adr+i, data[i]):
+                return self.ate_inst.get_error()
+        return "OK"
 
     def __mmr(self, adr, cnt):
-        print("MMR(", adr, ", ", cnt, ")")
-        return "42 43"
+        resp = ""
+        for i in range(cnt):
+            if not self.ate_inst.read(adr):
+                return self.ate_inst.get_error()
+            else:
+                if len(resp):
+                    resp = resp + " " + "0x{:8X}".format(self.ate_inst.get_value())
+                else:
+                    resp = "0x{:8X}".format(self.ate_inst.get_value())
+        return resp
 
     def __mmri(self, adr, cnt):
-        print("MMRI(", adr, ", ", cnt, ")")
-        return "42 43"
+        resp = ""
+        for i in range(cnt):
+            if not self.ate_inst.read(adr+i):
+                return self.ate_inst.get_error()
+            else:
+                if len(resp):
+                    resp = resp + " " + "0x{:8X}".format(self.ate_inst.get_value())
+                else:
+                    resp = "0x{:8X}".format(self.ate_inst.get_value())
+        return resp
+
+    def __get_board_inst(self, brd):
+        return boards[brd]
 
     def setterm(self, term):
         """
@@ -138,6 +172,48 @@ class SimulatorHandler(TelnetHandler):
         self.writeresponse(response)
 
     ############################################################################################
+    # Administration Commands
+    ############################################################################################
+    @command('STARTSIM')
+    def command_STARTSIM(self, params):
+        '''
+        <Name of the board to simulate>
+        Start up the MyHDL Simulation thread to run the logic simulation to be stimulated.
+        Start up the MyHDL Simulation thread to run the logic simulation to be stimulated.
+        STARTSIM SPITest
+        '''
+        if len(params) == 0:
+            # No argument given, so respond with help message
+            return self.cmdHELP(['STARTSIM'])
+        if len(params) == 1:
+            self.board_inst = self.__get_board_inst(params[0])
+            if self.board_inst is not None:
+                self.ate_inst = ATE(self.board_inst)
+                self.ate_inst.start_simulation()
+                self.start_state = True
+                self.writeresponse("OK")
+            else:
+                self.writeerror('Board {:s} cannot be found!'.format(params[0]))
+        else:
+            self.writeerror('Invalid number of arguments received.')
+
+    @command('STOPSIM')
+    def command_STOPSIM(self, params):
+        '''
+        Shutdown the simulation thread.
+        Shutdown the simulation thread.
+        STOPSIM
+        '''
+        if len(params) != 0:
+            self.writeerror('Invalid number of arguments received.')
+        else:
+            if not self.start_state:
+                self.writeerror('Simulation thread is not running.')
+            else:
+                self.ate_inst.terminate()
+                self.writeresponse('Simulation has stopped.' + "\nOK")
+
+    ############################################################################################
     # Single Cycle Commands
     ############################################################################################
     @command('MW')
@@ -151,13 +227,17 @@ class SimulatorHandler(TelnetHandler):
         if len(params) == 0:
             # No argument given, so respond with help message
             return self.cmdHELP(['MW'])
-        try:
-            if len(params) == 2:
-                self.__mw(int(params[0], 16), int(params[1], 16))
-            else:
-                self.writeerror('Invalid number of arguments received.')
-        except:
-            self.writeerror('Invalid argument received.')
+        if not self.start_state:
+            self.writeerror('Simulation must first be started with STARTSIM command.')
+        else:
+            try:
+                if len(params) == 2:
+                    self.__mw(int(params[0], 16), int(params[1], 16))
+                    self.writeresponse("OK")
+                else:
+                    self.writeerror('Invalid number of arguments received.')
+            except:
+                self.writeerror('Invalid argument received.')
 
     @command('MR')
     def command_MR(self, params):
@@ -170,14 +250,17 @@ class SimulatorHandler(TelnetHandler):
         if len(params) == 0:
             # No argument given, so respond with help message
             return self.cmdHELP(['MR'])
-        try:
-            if len(params) == 1:
-                response = self.__mr(int(params[0], 16))
-                self.writeresponse(response)
-            else:
-                self.writeerror('Invalid number of arguments received.')
-        except:
-            self.writeerror('Invalid argument received.')
+        if not self.start_state:
+            self.writeerror('Simulation must first be started with STARTSIM command.')
+        else:
+            try:
+                if len(params) == 1:
+                    response = self.__mr(int(params[0], 16))
+                    self.writeresponse(response + "\nOK")
+                else:
+                    self.writeerror('Invalid number of arguments received.')
+            except ValueError:
+                self.writeerror('Invalid argument received.')
 
     @command('MRMW')
     def command_MRMW(self, params):
@@ -190,14 +273,17 @@ class SimulatorHandler(TelnetHandler):
         if len(params) == 0:
             # No argument given, so respond with help message
             return self.cmdHELP(['MRMW'])
-        try:
-            if len(params) == 2:
-                response = self.__mrmw(int(params[0], 16), int(params[1], 16))
-                self.writeresponse(response)
-            else:
-                self.writeerror('Invalid number of arguments received.')
-        except:
-            self.writeerror('Invalid argument received.')
+        if not self.start_state:
+            self.writeerror('Simulation must first be started with STARTSIM command.')
+        else:
+            try:
+                if len(params) == 2:
+                    response = self.__mrmw(int(params[0], 16), int(params[1], 16))
+                    self.writeresponse(response + "\nOK")
+                else:
+                    self.writeerror('Invalid number of arguments received.')
+            except:
+                self.writeerror('Invalid argument received.')
 
     ############################################################################################
     # Block Cycle Commands
@@ -213,14 +299,18 @@ class SimulatorHandler(TelnetHandler):
         if len(params) == 0:
             # No argument given, so respond with help message
             return self.cmdHELP(['MMW'])
-        try:
-            ndata = len(params) - 2
-            if ndata != int(params[1]):
+        if not self.start_state:
+            self.writeerror('Simulation must first be started with STARTSIM command.')
+        else:
+            try:
+                ndata = len(params) - 2
+                if ndata != int(params[1]):
+                    self.writeerror('Invalid argument received.')
+                else:
+                    self.__mmw(int(params[0], 16), int(params[1]), params[2:])
+                    self.writeresponse("OK")
+            except:
                 self.writeerror('Invalid argument received.')
-            else:
-                self.__mmw(int(params[0], 16), int(params[1]), params[2:])
-        except:
-            self.writeerror('Invalid argument received.')
 
     @command('MMWI')
     def command_MMWI(self, params):
@@ -233,14 +323,18 @@ class SimulatorHandler(TelnetHandler):
         if len(params) == 0:
             # No argument given, so respond with help message
             return self.cmdHELP(['MMWI'])
-        try:
-            ndata = len(params) - 2
-            if ndata != int(params[1]):
+        if not self.start_state:
+            self.writeerror('Simulation must first be started with STARTSIM command.')
+        else:
+            try:
+                ndata = len(params) - 2
+                if ndata != int(params[1]):
+                    self.writeerror('Invalid argument received.')
+                else:
+                    self.__mmwi(int(params[0], 16), int(params[1]), params[2:])
+                    self.writeresponse("OK")
+            except:
                 self.writeerror('Invalid argument received.')
-            else:
-                self.__mmwi(int(params[0], 16), int(params[1]), params[2:])
-        except:
-            self.writeerror('Invalid argument received.')
 
     @command('MMR')
     def command_MMR(self, params):
@@ -253,14 +347,17 @@ class SimulatorHandler(TelnetHandler):
         if len(params) == 0:
             # No argument given, so respond with help message
             return self.cmdHELP(['MMR'])
-        try:
-            if len(params) == 2:
-                response = self.__mmr(int(params[0], 16), int(params[1]))
-                self.writeresponse(response)
-            else:
-                self.writeerror('Invalid number of arguments received.')
-        except:
-            self.writeerror('Invalid argument received.')
+        if not self.start_state:
+            self.writeerror('Simulation must first be started with STARTSIM command.')
+        else:
+            try:
+                if len(params) == 2:
+                    response = self.__mmr(int(params[0], 16), int(params[1]))
+                    self.writeresponse(response + "\nOK")
+                else:
+                    self.writeerror('Invalid number of arguments received.')
+            except:
+                self.writeerror('Invalid argument received.')
 
     @command('MMRI')
     def command_MMRI(self, params):
@@ -273,14 +370,17 @@ class SimulatorHandler(TelnetHandler):
         if len(params) == 0:
             # No argument given, so respond with help message
             return self.cmdHELP(['MMRI'])
-        try:
-            if len(params) == 2:
-                response = self.__mmri(int(params[0], 16), int(params[1]))
-                self.writeresponse(response)
-            else:
-                self.writeerror('Invalid number of arguments received.')
-        except:
-            self.writeerror('Invalid argument received.')
+        if not self.start_state:
+            self.writeerror('Simulation must first be started with STARTSIM command.')
+        else:
+            try:
+                if len(params) == 2:
+                    response = self.__mmri(int(params[0], 16), int(params[1]))
+                    self.writeresponse(response + "\nOK")
+                else:
+                    self.writeerror('Invalid number of arguments received.')
+            except:
+                self.writeerror('Invalid argument received.')
 
 
 class SimulatorServer(object):
@@ -297,12 +397,8 @@ class SimulatorServer(object):
         Handler = SimulatorHandler
 
         # Single threaded server - only one session at a time
-        if sys.version_info > (3, 0):
-            class TelnetServer(socketserver.TCPServer):
-                allow_reuse_address = True
-        else:
-            class TelnetServer(SocketServer.TCPServer):
-                allow_reuse_address = True
+        class TelnetServer(socketserver.TCPServer):
+            allow_reuse_address = True
 
         # server = TelnetServer((TELNET_IP_BINDING, TELNET_PORT_BINDING), Handler)
         self.server = TelnetServer((self.ip, self.port), Handler)
@@ -384,12 +480,8 @@ if __name__ == '__main__':
     Handler = SimulatorHandler
 
     # Single threaded server - only one session at a time
-    if sys.version_info > (3, 0):
-        class TelnetServer(socketserver.TCPServer):
-            allow_reuse_address = True
-    else:
-        class TelnetServer(SocketServer.TCPServer):
-            allow_reuse_address = True
+    class TelnetServer(socketserver.TCPServer):
+        allow_reuse_address = True
 
     # server = TelnetServer((TELNET_IP_BINDING, TELNET_PORT_BINDING), Handler)
     server = TelnetServer(('127.0.0.1', 5023), Handler)
