@@ -557,7 +557,7 @@ def spi_write_transmit_register(ate_inst, value):
 def spi_read_transmit_register(ate_inst):
     wb_addr = 0x00001C00 + 0x30
     assert (ate_inst.read(wb_addr))
-    return ate_inst.get_value() & 0xFF
+    return ate_inst.get_value()
 
 
 def spi_write_receive_register(ate_inst, value):
