@@ -129,7 +129,9 @@ def I2CClient(path, name, reset_n, scl_i, sda_t, sda_o, sda_i,
 
     @always(scl_i.posedge)
     def shift_register1():
-        if not ack_bit:
+        if not reset_n:
+            input_shift.next = intbv(0)[8:]
+        elif not ack_bit:
             input_shift.next = concat(input_shift[7:0], sda_i)
 
     @always(scl_i.posedge)
