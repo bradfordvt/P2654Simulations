@@ -36,8 +36,16 @@ def wbjtag(i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, wb_addr, i_wb_data, o_wb
     control_register_cycle = Signal(bool(0))
     status_register_cycle = Signal(bool(0))
     reset_n = ResetSignal(1, 0, True)
+    shift_start = Signal(bool(0))
+    shift_started = Signal(bool(0))
 
     control_interface = JTAGCtrlMasterInterface(i_clk, reset_n, addr_width=10, data_width=8)
+    # Redefine the ports to match the ATE ports
+    control_interface.jtag_interface.TCK = tck
+    control_interface.jtag_interface.TMS = tms
+    control_interface.jtag_interface.TRST = trst
+    control_interface.tdi = tdi
+    control_interface.tdo = tdo
     jtag_ctrl_master = JTAGCtrlMaster("wishbone", "wbjtag", control_interface, monitor=monitor)
 
     @always_comb
@@ -48,8 +56,7 @@ def wbjtag(i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, wb_addr, i_wb_data, o_wb
     def comb0():
         # control_interface.clk.next = i_clk
         # control_interface.reset_n.next = reset_n
-        status_register.next[0] = control_interface.busy
-        control_interface.shift_strobe = control_register[0]
+        status_register.next[0] = 1 if control_interface.busy else 0
         tck.next = control_interface.jtag_interface.TCK
         tms.next = control_interface.jtag_interface.TMS
         trst.next = control_interface.jtag_interface.TRST
@@ -85,41 +92,62 @@ def wbjtag(i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, wb_addr, i_wb_data, o_wb
 
     @always(i_clk.posedge)
     def io_cycle():
-        if bram_cycle == True:
+        if bram_cycle:
             control_interface.addr.next = wb_addr[10:]
             control_interface.din.next = i_wb_data[8:]
             control_interface.wr.next = i_wb_we
         else:
             control_interface.wr.next = False
-        if (start_state_register_cycle == True) and i_wb_we:
+        if start_state_register_cycle and i_wb_we:
             start_state_register.next = i_wb_data[4:]
-        if (end_state_register_cycle == True) and i_wb_we:
+        elif end_state_register_cycle and i_wb_we:
             end_state_register.next = i_wb_data[4:]
-        if (bit_count_register_cycle == True) and i_wb_we:
+        elif bit_count_register_cycle and i_wb_we:
             bit_count_register.next = i_wb_data[16:]
-        if (control_register_cycle == True) and i_wb_we:
+        elif control_register_cycle and i_wb_we:
             control_register.next[0] = i_wb_data[0]
-        if (status_register_cycle == True) and i_wb_we:
+        elif status_register_cycle and i_wb_we:
             status_register.next[0] = i_wb_data[0]
 
-    @always(i_clk.posedge)
+    # @always(i_clk.posedge)
+    @always_comb
     def o_cycle():
-        if (bram_cycle == True) and (i_wb_we == False):
+        if bram_cycle and not i_wb_we:
             o_wb_data.next = concat(Signal(intbv(0)[24:]), control_interface.dout)
-        if start_state_register_cycle == True:
+        elif start_state_register_cycle:
             o_wb_data.next = concat(Signal(intbv(0)[28:]), start_state_register)
-        if end_state_register_cycle == True:
+        elif end_state_register_cycle:
             o_wb_data.next = concat(Signal(intbv(0)[28:]), end_state_register)
-        if control_register_cycle == True:
+        elif control_register_cycle:
             o_wb_data.next = concat(Signal(intbv(0)[31:]), control_register[0])
-        if status_register_cycle == True:
+        elif status_register_cycle:
             o_wb_data.next = concat(Signal(intbv(0)[31:]), status_register[0])
 
     @always(i_clk.posedge)
     def ack():
-        if bram_cycle or start_state_register_cycle or end_state_register_cycle or control_register_cycle or status_register_cycle:
-            o_wb_ack.next = True
-        else:
-            o_wb_ack.next = False
+        # if bram_cycle or start_state_register_cycle or end_state_register_cycle or control_register_cycle or status_register_cycle:
+        #     o_wb_ack.next = True
+        # else:
+        #     o_wb_ack.next = False
+        o_wb_ack.next = i_wb_stb and i_wb_cyc
 
-    return jtag_ctrl_master, comb0, addr_decode, io_cycle, o_cycle, ack
+    @always(i_clk.posedge)
+    def strobe0():
+        if control_register[0] == 1 and not shift_start:
+            control_interface.shift_strobe.next = True
+            shift_start.next = True
+        elif shift_started:
+            control_interface.shift_strobe.next = False
+        elif control_register[0] == 0:
+            shift_start.next = False
+
+    @always(i_clk.posedge)
+    def strobe1():
+        if control_interface.shift_strobe and control_interface.busy:
+            shift_started.next = True
+        elif control_interface.busy:
+            shift_started.next = True
+        else:
+            shift_started.next = False
+
+    return jtag_ctrl_master, comb0, addr_decode, io_cycle, o_cycle, ack, strobe0, strobe1

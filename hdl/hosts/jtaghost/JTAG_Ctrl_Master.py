@@ -94,9 +94,11 @@ TypeShiftStates = enum(
 
 
 class JTAGCtrlMasterInterface:
-    def __init__(self, addr_width=10, data_width=8):
-        self.clk = Signal(bool(0))
-        self.reset_n = ResetSignal(1, 0, True)
+    def __init__(self, clk, reset_n, addr_width=10, data_width=8):
+        # self.clk = Signal(bool(0))
+        # self.reset_n = ResetSignal(1, 0, True)
+        self.clk = clk
+        self.reset_n = reset_n
         # JTAG Part
         self.bit_count = Signal(intbv(0)[16:])
         self.shift_strobe = Signal(bool(0))
@@ -210,16 +212,16 @@ def JTAGCtrlMaster(parent, name,
     @always_seq(control_interface.clk.posedge, reset=control_interface.reset_n)
     def trst_process():
         if control_interface.reset_n == bool(0):
-            control_interface.jtag_interface.TRST.next = bool(0)
+            control_interface.jtag_interface.TRST.next = False
         else:
-            control_interface.jtag_interface.TRST.next = bool(1)
+            control_interface.jtag_interface.TRST.next = True
 
     @always_comb
     def tck_process():
         if not tms_tck or not shift_tck:
-            control_interface.jtag_interface.TCK.next = bool(0)
+            control_interface.jtag_interface.TCK.next = False
         else:
-            control_interface.jtag_interface.TCK.next = bool(1)
+            control_interface.jtag_interface.TCK.next = True
 
     @always_comb
     def ram_process():
@@ -239,9 +241,9 @@ def JTAGCtrlMaster(parent, name,
         else:
             # Main Thread
             if StateJTAGMaster == TypeStateJTAGMaster.State_IDLE:
-                control_interface.busy.next = 0
-                if control_interface.shift_strobe == 1:
-                    control_interface.busy.next = 1
+                control_interface.busy.next = False
+                if control_interface.shift_strobe:
+                    control_interface.busy.next = True
                     int_TMS_StateIn.next = control_interface.state_start
                     # Fix "Signal has multiple drivers: self_TMSState" error in toVerilog conversion
                     # TMSState.next = TypeTMSStates.prepare_for_working
@@ -266,10 +268,10 @@ def JTAGCtrlMaster(parent, name,
                     StateJTAGMaster.next = TypeStateJTAGMaster.State_TapToEnd
             elif StateJTAGMaster == TypeStateJTAGMaster.State_TapToEnd:
                 if TMSState == TypeTMSStates.idle:
-                    control_interface.busy.next = 0
+                    control_interface.busy.next = False
                     StateJTAGMaster.next = TypeStateJTAGMaster.State_TapToEnd2
             elif StateJTAGMaster == TypeStateJTAGMaster.State_TapToEnd2:
-                if control_interface.shift_strobe == 0:
+                if not control_interface.shift_strobe:
                     StateJTAGMaster.next = TypeStateJTAGMaster.State_IDLE
             else:
                 StateJTAGMaster.next = TypeStateJTAGMaster.State_IDLE
@@ -279,7 +281,7 @@ def JTAGCtrlMaster(parent, name,
         """
         Control data shifting to/from of device
         """
-        if control_interface.reset_n == 0:
+        if not control_interface.reset_n:
             shift_state.next = TypeShiftStates.idle
         else:
             if shift_state == TypeShiftStates.idle:
@@ -311,17 +313,17 @@ def JTAGCtrlMaster(parent, name,
                 control_interface.tdi.next = ram_interface.Dout[int_bit_count % control_interface.data_width]
                 shift_state.next = TypeShiftStates.shifting2
             elif shift_state == TypeShiftStates.shifting2:
-                shift_tck.next = 0
+                shift_tck.next = False
                 shift_state.next = TypeShiftStates.shifting3
             elif shift_state == TypeShiftStates.shifting3:
                 # Push TDO
                 shift_state.next = TypeShiftStates.shifting4
                 ram_interface.Din.next = ram_interface.Dout
                 ram_interface.Din.next[int_bit_count % control_interface.data_width] = control_interface.tdo
-                ram_interface.Write.next = 1
+                ram_interface.Write.next = True
             elif shift_state == TypeShiftStates.shifting4:
-                ram_interface.Write.next = 0
-                shift_tck.next = 1
+                ram_interface.Write.next = False
+                shift_tck.next = True
                 if control_interface.bit_count == (int_bit_count + 1):
                     shift_state.next = TypeShiftStates.idle
                 else:
@@ -335,14 +337,14 @@ def JTAGCtrlMaster(parent, name,
         """
         Control TAP state of device
         """
-        if control_interface.reset_n == bool(0):
+        if not control_interface.reset_n:
             TMSState.next = TypeTMSStates.idle
             int_TMS_CurrState.next = TEST_LOGIC_RESET
         else:
             if TMSState == TypeTMSStates.idle:
                 # pass
                 # Fix "Signal has multiple drivers: self_TMSState" error in toVerilog conversion
-                if control_interface.shift_strobe == 1:
+                if control_interface.shift_strobe:
                     TMSState.next = TypeTMSStates.prepare_for_working
                 elif shift_state == TypeShiftStates.idle:
                     TMSState.next = TypeTMSStates.prepare_for_working
@@ -359,17 +361,17 @@ def JTAGCtrlMaster(parent, name,
             elif TMSState == TypeTMSStates.working_normal1:
                 if int_TMS_CurrState == TEST_LOGIC_RESET:
                     if int_TMS_StateIn == TEST_LOGIC_RESET:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = TEST_LOGIC_RESET
                     else:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = RUN_TEST_IDLE
                 elif int_TMS_CurrState == RUN_TEST_IDLE:
                     if int_TMS_StateIn == RUN_TEST_IDLE:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = RUN_TEST_IDLE
                     else:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = SELECT_DR
                 elif int_TMS_CurrState == SELECT_DR:
                     if int_TMS_StateIn == TEST_LOGIC_RESET or \
@@ -381,137 +383,137 @@ def JTAGCtrlMaster(parent, name,
                             int_TMS_StateIn == PAUSE_IR or \
                             int_TMS_StateIn == EXIT2_IR or \
                             int_TMS_StateIn == UPDATE_IR:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = SELECT_IR
                     else:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = CAPTURE_DR
                 elif int_TMS_CurrState == CAPTURE_DR:
                     if int_TMS_StateIn == EXIT1_DR:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT1_DR
                     else:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_DR
                 elif int_TMS_CurrState == SHIFT_DR:
                     if int_TMS_StateIn == SHIFT_DR:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_DR
                     # Fix "Signal has multiple drivers: self_int_TMS_CurrState" error in toVerilog conversion
                     # TMS: Last bit, set at TMS state change
                     elif (control_interface.bit_count == (int_bit_count + 1)) and (
                             int_TMS_CurrState != control_interface.state_end):
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT1_DR
                     # Done Fix
                     else:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT1_DR
                 elif int_TMS_CurrState == EXIT1_DR:
                     if int_TMS_StateIn == UPDATE_DR:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = UPDATE_DR
                     else:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = PAUSE_DR
                 elif int_TMS_CurrState == PAUSE_DR:
                     if int_TMS_StateIn == PAUSE_DR:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = PAUSE_DR
                     else:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT2_DR
                 elif int_TMS_CurrState == EXIT2_DR:
                     if int_TMS_StateIn == SHIFT_DR:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_DR
                     else:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = UPDATE_DR
                 elif int_TMS_CurrState == UPDATE_DR:
                     if int_TMS_StateIn == RUN_TEST_IDLE:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = RUN_TEST_IDLE
                     else:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = SELECT_DR
                 elif int_TMS_CurrState == SELECT_IR:
                     if int_TMS_StateIn == TEST_LOGIC_RESET:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = TEST_LOGIC_RESET
                     else:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = CAPTURE_IR
                 elif int_TMS_CurrState == CAPTURE_IR:
                     if int_TMS_StateIn == EXIT1_IR:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT1_IR
                     else:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_IR
                 elif int_TMS_CurrState == SHIFT_IR:
                     if int_TMS_StateIn == SHIFT_IR:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_IR
                     # Fix "Signal has multiple drivers: self_int_TMS_CurrState" error in toVerilog conversion
                     # TMS: Last bit, set at TMS state change
                     elif (control_interface.bit_count == (int_bit_count + 1)) and (
                                 int_TMS_CurrState != control_interface.state_end):
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT1_IR
                     # Done Fix
                     else:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT1_IR
                 elif int_TMS_CurrState == EXIT1_IR:
                     if int_TMS_StateIn == UPDATE_IR:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = UPDATE_IR
                     else:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = PAUSE_IR
                 elif int_TMS_CurrState == PAUSE_IR:
                     if int_TMS_StateIn == PAUSE_IR:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = PAUSE_IR
                     else:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT2_IR
                 elif int_TMS_CurrState == EXIT2_IR:
                     if int_TMS_StateIn == SHIFT_IR:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_IR
                     else:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = UPDATE_IR
                 elif int_TMS_CurrState == UPDATE_IR:
                     if int_TMS_StateIn == RUN_TEST_IDLE:
-                        control_interface.jtag_interface.TMS.next = 0
+                        control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = RUN_TEST_IDLE
                     else:
-                        control_interface.jtag_interface.TMS.next = 1
+                        control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = SELECT_DR
                 else:
                     int_TMS_CurrState.next = TEST_LOGIC_RESET
                 TMSState.next = TypeTMSStates.working_normal2
             elif TMSState == TypeTMSStates.working_normal2:
-                tms_tck.next = 0
+                tms_tck.next = False
                 TMSState.next = TypeTMSStates.working_normal3
             elif TMSState == TypeTMSStates.working_normal3:
-                tms_tck.next = 1
+                tms_tck.next = True
                 if int_TMS_CurrState == int_TMS_StateIn:
                     TMSState.next = TypeTMSStates.idle
                 else:
                     TMSState.next = TypeTMSStates.working_normal1
             elif TMSState == TypeTMSStates.working_softreset1:
-                control_interface.jtag_interface.TMS.next = 1
+                control_interface.jtag_interface.TMS.next = True
                 int_TMS_SoftResetCnt.next = intbv('0101')
                 TMSState.next = TypeTMSStates.working_softreset2
             elif TMSState == TypeTMSStates.working_softreset2:
-                tms_tck.next = 0
+                tms_tck.next = False
                 TMSState.next = TypeTMSStates.working_softreset3
             elif TMSState == TypeTMSStates.working_softreset3:
-                tms_tck.next = 1
+                tms_tck.next = True
                 int_TMS_SoftResetCnt.next = int_TMS_SoftResetCnt - 1
                 if int_TMS_SoftResetCnt > intbv('0000'):
                     TMSState.next = TypeTMSStates.working_softreset2
@@ -711,9 +713,12 @@ def JTAGCtrlMaster_tb(monitor=False):
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     :return: A list of generators for this logic
     """
-    addr_width=10
-    data_width=8
-    control_interface = JTAGCtrlMasterInterface(addr_width=addr_width, data_width=data_width)
+    addr_width = 10
+    data_width = 8
+    clk = Signal(bool(0))
+    reset_n = ResetSignal(1, 0, True)
+
+    control_interface = JTAGCtrlMasterInterface(clk, reset_n, addr_width=addr_width, data_width=data_width)
     ir_tdi_vector = [Signal(intbv(0x55)[data_width:]), Signal(intbv(0x19)[data_width:])]
     ir_tdo_vector = [Signal(intbv(0)[data_width:]), Signal(intbv(0)[data_width:])]
     dr_tdi_vector = [Signal(intbv(0xA5)[data_width:]), Signal(intbv(0x66)[data_width:])]
@@ -935,7 +940,10 @@ def convert():
     Convert the myHDL design into VHDL and Verilog
     :return:
     """
-    control_instance = JTAGCtrlMasterInterface(addr_width=10, data_width=8)
+    clk = Signal(bool(0))
+    reset_n = ResetSignal(1, 0, True)
+
+    control_instance = JTAGCtrlMasterInterface(clk, reset_n, addr_width=10, data_width=8)
 
     jcm_inst = JTAGCtrlMaster('DEMO', 'JCM0',
                               control_instance,

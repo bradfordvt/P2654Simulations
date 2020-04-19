@@ -104,8 +104,8 @@ from hdl.hosts.i2chost.i2c_interface import i2c_if
 # from hdl.common.rom import rom
 # import os
 # import os.path
-from hdl.clients.I2CClient.I2CClient_RI import I2CClient_RI
-from hdl.clients.i2cslave.registerInterface import registerInterface
+from hdl.clients.I2CClient.i2cslave_RW import i2cslave_RW
+from hdl.clients.I2CClient.registerInterface import registerInterface
 
 
 period = 20  # clk frequency = 50 MHz
@@ -125,11 +125,13 @@ class I2CDevice:
 
         # I2C Client signals for attached client of interface
         self.reset_n = ResetSignal(1, 0, True)
-        self.device_address = Signal(intbv(0x3C)[7::0])
-        self.reg_address = Signal(intbv(0)[8:])
-        self.dataIn = Signal(intbv(0)[8:])
-        self.dataOut = Signal(intbv(0)[8:])
-        self.writeEn = Signal(bool(0))
+        self.device_address = Signal(intbv(0x55)[7::0])
+        self.write_address = Signal(intbv(0)[8:])
+        self.write_data = Signal(intbv(0)[8:])
+        self.update = Signal(bool(0))
+        self.read_address = Signal(intbv(0)[8:])
+        self.read_data = Signal(intbv(0)[8:])
+        self.capture = Signal(bool(0))
 
         # self.local_update = Signal(bool(0))
         # self.local_update_rst = Signal(bool(0))
@@ -176,18 +178,18 @@ class I2CDevice:
         myReg1 = Signal(intbv(0)[8:])
         myReg2 = Signal(intbv(0)[8:])
         myReg3 = Signal(intbv(0)[8:])
-        myReg4 = Signal(intbv(0)[8:])
-        myReg5 = Signal(intbv(0)[8:])
-        myReg6 = Signal(intbv(0)[8:])
-        myReg7 = Signal(intbv(0)[8:])
-        i2c_client_inst = I2CClient_RI('TOP', 'I2CC0', self.clk_o, self.reset_n,
-                                       i2c_interface_c.scl_i, i2c_interface_c.scl_o,
-                                       i2c_interface_c.scl_e, i2c_interface_c.sda_e,
-                                       i2c_interface_c.sda_o, i2c_interface_c.sda_i,
-                                       self.device_address, self.reg_address, self.dataIn, self.writeEn, self.dataOut,
-                                       monitor=False)
-        reg_interface_inst = registerInterface(self.clk_o, self.reg_address, self.dataIn, self.writeEn, self.dataOut,
-                                               myReg0, myReg1, myReg2, myReg3, myReg4, myReg5, myReg6, myReg7)
+        myReg4 = Signal(intbv(0x12)[8:])
+        myReg5 = Signal(intbv(0x34)[8:])
+        myReg6 = Signal(intbv(0x56)[8:])
+        myReg7 = Signal(intbv(0x78)[8:])
+        writeEn = Signal(bool(0))
+        dataIn = Signal(intbv(0)[8:])
+        dataOut = Signal(intbv(0)[8:])
+        regAddr = Signal(modbv(0)[8:])
+        i2c_client_inst = i2cslave_RW(i2c_interface_c.scl_i, i2c_interface_c.sda_i, i2c_interface_c.sda_e, self.reset_n,
+                                      dataIn, dataOut, regAddr, writeEn, autoincrement=True)
+        register_interface_inst = registerInterface(self.clk_o, regAddr, dataOut, writeEn, dataIn,
+                                                    myReg0, myReg1, myReg2, myReg3, myReg4, myReg5, myReg6, myReg7)
 
         @instance
         def power_on_reset_gen():
@@ -198,40 +200,23 @@ class I2CDevice:
         # build up the netlist for the device here
         @always_comb
         def netlist():
-            # if not self.sda_e:
-            #     i2c_interface_c.sda_i.next = self.sda_o
-            #     self.sda_i.next = self.sda_o
-            # elif not i2c_interface_c.sda_e:
-            #     self.sda_i.next = i2c_interface_c.sda_o
-            #     i2c_interface_c.sda_i.next = i2c_interface_c.sda_o
-            # else:
-            #     i2c_interface_c.sda_i.next = True
-            #     self.sda_i.next = True
-            # if not self.scl_e:
-            #     i2c_interface_c.scl_i.next = self.scl_o
-            #     self.scl_i.next = self.scl_o
-            # elif not i2c_interface_c.scl_e:
-            #     self.scl_i.next = i2c_interface_c.scl_o
-            #     i2c_interface_c.scl_i.next = i2c_interface_c.scl_o
-            # else:
-            #     i2c_interface_c.scl_i.next = True
-            #     self.scl_i.next = True
             if not self.sda_e:
-                i2c_interface_c.sda_i.next = self.sda_o
+                i2c_interface_c.sda_i.next = self.sda_e
             else:
                 i2c_interface_c.sda_i.next = True
             if not self.scl_e:
-                i2c_interface_c.scl_i.next = self.scl_o
+                i2c_interface_c.scl_i.next = self.scl_e
             else:
                 i2c_interface_c.scl_i.next = True
             if not i2c_interface_c.sda_e:
-                self.sda_i.next = i2c_interface_c.sda_o
+                self.sda_i.next = i2c_interface_c.sda_e
             else:
                 self.sda_i.next = True
-            if not i2c_interface_c.scl_e:
-                self.scl_i.next = i2c_interface_c.scl_o
-            else:
-                self.scl_i.next = True
+            # if not i2c_interface_c.scl_e:
+            #     self.scl_i.next = i2c_interface_c.scl_e
+            # else:
+            #     self.scl_i.next = True
+            self.scl_i.next = True
 
         # @always_comb
         # def update_detector4():
@@ -267,6 +252,6 @@ class I2CDevice:
         #         self.rom_address.next = self.read_address
         #         self.read_data.next = self.rom_dout
 
-        return netlist, i2c_client_inst, power_on_reset_gen  # , reg_interface_inst
+        return netlist, i2c_client_inst, power_on_reset_gen, register_interface_inst
                # update_detector4, update_detector5, update_detector6, client_write, client_read
 

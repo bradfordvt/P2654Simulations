@@ -54,6 +54,7 @@ class ATE:
         self.tp_i = Signal(bool(0))
         self.tp_o = Signal(bool(0))
         self.tp_e = Signal(bool(0))
+
         self.wb_if = None
         self.master_inst = None
         self.wb_syscon = None
@@ -117,6 +118,11 @@ class ATE:
                                   self.sda_o,
                                   self.sda_i,
                                   self.sda_e,
+                                  # SPI wires
+                                  self.sclk,
+                                  self.mosi,
+                                  self.miso,
+                                  self.ss,
                                   # parameters
                                   # GPIO parameters
                                   NGPO=16, NGPI=16,

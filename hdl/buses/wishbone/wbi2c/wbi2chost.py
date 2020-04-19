@@ -61,6 +61,8 @@ def wbi2chost(i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data,
             data_rd.next = i_wb_data[8:]
         if (control_register_cycle == True) and i_wb_we:
             control_register.next = i_wb_data[8:]
+        else:
+            control_register.next[0] = False  # reset execute signal
         if (status_register_cycle == True) and i_wb_we:
             status_register.next = i_wb_data[8:]
 

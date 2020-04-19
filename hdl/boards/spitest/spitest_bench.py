@@ -45,6 +45,7 @@ from time import sleep
 from hdl.boards.i2ctest.i2ctest import I2CTest
 from hdl.ate.ate import ATE
 from hdl.hosts.jtaghost.JTAG_Ctrl_Master import SHIFT_DR, SHIFT_IR, RUN_TEST_IDLE
+from hdl.boards.spitest.spitest import SPITest
 
 
 def write_vector(ate_inst, addr, data):
@@ -402,7 +403,8 @@ def i2c_read_reg(ate_inst, dev_address, reg_address):
     while status & 0x01:  # busy set
         status = read_status_register(ate_inst)
     # check for ack error
-    if status & 0x02:
+    if status & 0x02:               # update_detector4, update_detector5, update_detector6, client_write, client_read
+
         raise AcknowledgeError("Acknowledge error detected during read transmission.")
     return read_receive_register(ate_inst)
 
@@ -546,8 +548,45 @@ def i2c_multibyte_read(ate_inst, dev_address, reg_address):
     return retval
 
 
-def i2ctest_bench():
-    board_inst = I2CTest()
+# Read/Write registers
+def spi_write_transmit_register(ate_inst, value):
+    wb_addr = 0x00001C00 + 0x30
+    assert (ate_inst.write(wb_addr, value))
+
+
+def spi_read_transmit_register(ate_inst):
+    wb_addr = 0x00001C00 + 0x30
+    assert (ate_inst.read(wb_addr))
+    return ate_inst.get_value()
+
+
+def spi_write_receive_register(ate_inst, value):
+    wb_addr = 0x00001C00 + 0x31
+    assert (ate_inst.write(wb_addr, value))
+
+
+def spi_read_receive_register(ate_inst):
+    wb_addr = 0x00001C00 + 0x31
+    assert (ate_inst.read(wb_addr))
+    return ate_inst.get_value()
+
+
+def spi_write(ate_inst, value):
+    """
+
+    :param ate_inst: ATE object instance
+    :param value: 32 bit value to be written to the device
+    :return:
+    """
+    spi_write_transmit_register(ate_inst, value)
+
+
+def spi_read(ate_inst):
+    return spi_read_receive_register(ate_inst)
+
+
+def spitest_bench():
+    board_inst = SPITest()
     ate_inst = ATE(board_inst)
     ate_inst.start_simulation()
     sleep(1)
@@ -593,14 +632,23 @@ def i2ctest_bench():
     # tdo = scan_dr(ate_inst, 16 * 4, '0123456789ABCDEF')
     # assert(tdo == '0123456789ABCDEF')
 
-    # I2C Test set i2c master clock scale reg PRER = (48MHz / (5 * 400KHz) ) - 1
-    print("Testing register read/write")
-    i2c_write_reg(ate_inst, 0x3C, 0x01, 0xA5)
-    assert(i2c_read_reg(ate_inst, 0x3C, 0x01) == 0xA5)
-
-    i2c_multibyte_write(ate_inst, 0x3C, 0, 0x89abcdef)
-    assert(i2c_multibyte_read(ate_inst, 0x3C, 0) == 0x89abcdef)
-    assert(i2c_multibyte_read(ate_inst, 0x3C, 4) == 0x12345678)
+    # # I2C Test set i2c master clock scale reg PRER = (48MHz / (5 * 400KHz) ) - 1
+    # print("Testing register read/write")
+    # i2c_write_reg(ate_inst, 0x3C, 0x01, 0xA5)
+    # assert(i2c_read_reg(ate_inst, 0x3C, 0x01) == 0xA5)
+    #
+    # i2c_multibyte_write(ate_inst, 0x3C, 0, 0x89abcdef)
+    # assert(i2c_multibyte_read(ate_inst, 0x3C, 0) == 0x89abcdef)
+    # assert(i2c_multibyte_read(ate_inst, 0x3C, 4) == 0x12345678)
+    #
+    sleep(1)
+    spi_write(ate_inst, 0x01345678)
+    spi_write(ate_inst, 0x00BADEDA)
+    assert(spi_read(ate_inst) == 0x01345678)
+    spi_write(ate_inst, 0x02BEEFED)
+    assert(spi_read(ate_inst) == 0x00BADEDA)
+    spi_write(ate_inst, 0x01345678)
+    assert(spi_read(ate_inst) == 0x02BEEFED)
 
     # End the simulation
     assert(ate_inst.terminate())
@@ -608,7 +656,7 @@ def i2ctest_bench():
 
 
 def main():
-    i2ctest_bench()
+    spitest_bench()
 
 
 if __name__ == '__main__':

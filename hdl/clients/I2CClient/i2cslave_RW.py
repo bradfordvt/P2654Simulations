@@ -8,43 +8,38 @@ from myhdl import *
 
 
 @block
-def i2cslave_RW(SCL, SDA, SDAS, RST, reg_00, reg_01, reg_02, reg_00_latch, reg_01_latch):
-    '''
-    SCL is a TristateSignal representing the I2C Clock pin
-    SDA Since myHDL does not yet support Tri-state signal, this is the SDA from the master.
-    SDAS Since myHDL does not yet support Tri-state signals, this is the return SDA signal.
-    Both SCL and SDA could be driven by the master or slave during a transfer cycle.
-    The Slave drives the SCL signal only if a clock stretch is required to indicate
-    the slave needs more time to handle the request.  This implementation does not
-    support clock stretching.
-    RST is the active low master reset to the instrument
-    reg_00 is assumed to be the write only register for the P1687.1 interface
-    reg_01 is assumed to be the read only register for the P1687.1 interface 
-    reg_02 is assumed to be the read only register for the P1687.1 interface for status
-    reg_00_latch signal to notify that reg_00 has been updated (e.g., we)
-    reg_01_latch signal to notify that reg_01 has been read from slave (e.g., re)
-    '''
+def i2cslave_RW(scl_i, sda_i, sda_oen, reset_n, dataIn, dataOut, regAddr, writeEn, autoincrement=False):
+    """
+    :param scl_i: I2C Clock pin
+    :param sda_i: I2C data input
+    :param sda_oen: I2C data output enable of the Open Collector data bus
+    :param reset_n: Active low reset to the slave
+    :param dataIn: Signal(intbv(0)[8:]) data bus to be read by the I2C bus
+    :param dataOut: Signal(intbv(0)[8:]) data bus to be written to by the I2C bus
+    :param regAddr: Signal(modbv(0)[8:]) register address to be read or written to
+    :param writeEn: Write enable signal triggering the writing to a register
+    """
     # Start detector logic
     start_detect = Signal(bool(0))
     start_resetter = Signal(bool(1))
-    start_rst = Signal(bool(1))
+    start_reset_n = Signal(bool(1))
     
     @always_comb
     def start_detector0():
-        start_rst.next = not RST or start_resetter
+        start_reset_n.next = not reset_n or start_resetter
                
-    @always(start_rst.posedge,SDA.negedge)
+    @always(start_reset_n.posedge,sda_i.negedge)
     def start_detector1():
-        if start_rst:
-            # print "start_detector1: start_rst"
+        if start_reset_n:
+            # print "start_detector1: start_reset_n"
             start_detect.next = bool(0)
         else:
-            # print "start_detector1: SCL=",int(SCL)
-            start_detect.next = SCL
+            # print "start_detector1: scl_i=",int(scl_i)
+            start_detect.next = scl_i
             
-    @always(SCL.posedge,RST.negedge)
+    @always(scl_i.posedge,reset_n.negedge)
     def start_detector2():
-        if not RST:
+        if not reset_n:
             start_resetter.next = bool(0)
         else:
             start_resetter.next =  start_detect
@@ -52,28 +47,28 @@ def i2cslave_RW(SCL, SDA, SDAS, RST, reg_00, reg_01, reg_02, reg_00_latch, reg_0
     # Stop detector logic
     stop_detect = Signal(bool(0))
     stop_resetter = Signal(bool(0))
-    stop_rst = Signal(bool(0))
+    stop_reset_n = Signal(bool(0))
     
     @always_comb
     def stop_detector0():
-        stop_rst.next = not RST or stop_resetter
+        stop_reset_n.next = not reset_n or stop_resetter
 
-    @always(stop_rst.posedge,SDA.posedge)        
+    @always(stop_reset_n.posedge,sda_i.posedge)        
     def stop_detector1():
-        if stop_rst:
+        if stop_reset_n:
             stop_detect.next = bool(0)
         else:
-            stop_detect.next = SCL
+            stop_detect.next = scl_i
             
-    @always(SCL.posedge,RST.negedge)
+    @always(scl_i.posedge,reset_n.negedge)
     def stop_detector2():
-        if not RST:
+        if not reset_n:
             stop_resetter.next = bool(0)
         else:
             stop_resetter.next = stop_detect
                
     # Modulo-9 Counter to preserve the cycle State
-    bit_counter=Signal(modbv(0,min=0,max=9))
+    bit_counter = Signal(modbv(0, min=0, max=9))
     
     reader_bit = Signal(bool(0))
     lsb_bit = Signal(bool(0))
@@ -81,62 +76,62 @@ def i2cslave_RW(SCL, SDA, SDAS, RST, reg_00, reg_01, reg_02, reg_00_latch, reg_0
     
     @always_comb
     def state_counter0():
-        #print "state_counter0: lsb_bit being set to ", int((bit_counter == 7) and (not start_detect))
-        #print "state_counter0: ack_bit being set to ", int((bit_counter == 8) and (not start_detect))
+        # print "state_counter0: lsb_bit being set to ", int((bit_counter == 7) and (not start_detect))
+        # print "state_counter0: ack_bit being set to ", int((bit_counter == 8) and (not start_detect))
         reader_bit.next = (bit_counter == 6) and (not start_detect)
         lsb_bit.next = (bit_counter == 7) and (not start_detect)
         ack_bit.next = (bit_counter == 8) and (not start_detect)
         
-    @always(SCL.negedge)
+    @always(scl_i.negedge, reset_n.negedge)
     def state_counter1():
-        if ack_bit or start_detect:
-            #print "state_counter1: Resetting bit_counter to 0."
-            bit_counter.next = intbv(0)[4:]
+        if not reset_n:
+            bit_counter.next = modbv(0, min=0, max=9)
+        elif ack_bit or start_detect:
+            # print "state_counter1: Resetting bit_counter to 0."
+            bit_counter.next = modbv(0, min=0, max=9)
         else:
-            #print "state_counter1: bit_counter being set to ", bit_counter + intbv(1)[4:]
-            bit_counter.next = bit_counter + intbv(1)[4:]
+            # print "state_counter1: bit_counter being set to ", bit_counter + modbv(1, min=0, max=9)
+            bit_counter.next = bit_counter + modbv(1, min=0, max=9)
             
     # Input shift register logic
-    input_shift = Signal(intbv(0)[8:])
-    device_address = Signal(intbv(0x55)[7:])
+    device_address = Signal(intbv(0x3C)[7:])
     address_detect = Signal(bool(0))
     read_write_bit = Signal(bool(0))
     
     @always_comb
     def shift_register0():
-        address_detect.next = (input_shift[8:1] == device_address)
-        read_write_bit.next = input_shift[0]
-        # print "shift_register0: input_shift[0]=", int(input_shift[0])
+        address_detect.next = (dataOut[8:1] == device_address)
+        read_write_bit.next = dataOut[0]
+        # print "shift_register0: dataOut[0]=", int(dataOut[0])
         
-    # @always(SCL.posedge,RST.negedge)
-    @always(SCL.posedge)
+    # @always(scl_i.posedge,reset_n.negedge)
+    @always(scl_i.posedge)
     def shift_register1():
         if not ack_bit:
-            # print("shift_register1: iput_shift=%x" % input_shift)
-            input_shift.next = concat(input_shift[7:0], SDA)
+            # print("shift_register1: iput_shift=%x" % dataOut)
+            dataOut.next = concat(dataOut[7:0], sda_i)
             
     # Master ACK detection logic
     master_ack = Signal(bool(0))
     
-    @always(SCL.posedge)
+    @always(scl_i.posedge)
     def master_ack0():
         if ack_bit:
-            master_ack.next = not SDA
+            master_ack.next = not sda_i
             
     # State Machine logic controlling the interface
-    STATE_IDLE,STATE_DEV_ADDR,STATE_READ,STATE_IDX_PTR,STATE_WRITE=range(5)
-    state = Signal(intbv(0,min=0,max=5))
-    write_strobe = Signal(bool(0))
-    
+    STATE_IDLE, STATE_DEV_ADDR, STATE_READ, STATE_IDX_PTR, STATE_WRITE = range(5)
+    state = Signal(intbv(0, min=0, max=5))
+
     @always_comb
     def state_mach0():
-        # print "state_mach0: Setting write_strobe to ",bin((state == STATE_WRITE) and ack_bit)
-        write_strobe.next = (state == STATE_WRITE) and ack_bit
+        # print "state_mach0: Setting writeEn to ",bin((state == STATE_WRITE) and ack_bit)
+        writeEn.next = (state == STATE_WRITE) and ack_bit
         
-    @always(SCL.negedge,RST.negedge)
+    @always(scl_i.negedge,reset_n.negedge)
     def state_mach1():
-        if not RST:
-            # print "state_mach1: not RST"
+        if not reset_n:
+            # print "state_mach1: not reset_n"
             # print "state_mach1: moving to STATE_IDLE"
             state.next = STATE_IDLE
         elif start_detect:
@@ -175,91 +170,62 @@ def i2cslave_RW(SCL, SDA, SDAS, RST, reg_00, reg_01, reg_02, reg_00_latch, reg_0
                 state.next = STATE_WRITE
                 
     # Register transfer logic
-    index_pointer = Signal(intbv(0)[8:])
-    
-    @always(SCL.negedge,RST.negedge)
+    # Read of registers needs to be done with an dataIn register
+    # that gets latched before the ACK BIT
+    txData = Signal(intbv(0)[8:])
+
+    @always(scl_i.negedge, reset_n.negedge)
     def reg_trans0():
-        if not RST:
-            index_pointer.next = intbv(0)[8:]
-        elif stop_detect:
-            index_pointer.next = intbv(0)[8:]
+        if not reset_n:
+            regAddr.next = modbv(0)[8:]
         elif ack_bit:
             if state == STATE_IDX_PTR:
-                index_pointer.next = input_shift
-            #else:
-            #    index_pointer.next = index_pointer + 1
-    # reg_00 is an example of a register at register address 0 to be written to  
-    '''
-    # define reg_00 as this in the top level        
-    reg_00 = Signal(intbv(0)[8:])
-    '''
-    
-    @always(SCL.negedge,RST.negedge)
-    def reg_trans1():
-        if not RST:
-            reg_00.next = intbv(0)[8:]
-        elif write_strobe and (index_pointer == 0):
-            reg_00.next = input_shift
-            reg_00_latch.next = bool(0)
-            # print "i2cslave_RW.reg_trans1: Saving reg_00 as 0b: ",bin(input_shift)
-        else:
-            reg_00_latch.next = bool(1)
-            
-    # Read of registers needs to be done with an output_shift register
+                regAddr.next = dataOut
+            elif autoincrement:
+                regAddr.next = regAddr + 1
+
+    # Read of registers needs to be done with an dataIn register
     # that gets latched before the ACK BIT
-    output_shift = Signal(intbv(0)[8:])
-    '''
-    # define reg_01 as this in the top level
-    reg_01 = Signal(intbv(0)[8:])
-    '''
-    
-    @always(SCL.negedge)
+
+    @always(scl_i.negedge)
     def reg_trans2():
         if lsb_bit:
-            if index_pointer == 1:
-                # print("i2cslave_RW.reg_trans2: reg_01 = 0x%x" % reg_01)
-                output_shift.next = reg_01
-                reg_01_latch.next = bool(1)
-            elif index_pointer == 2:
-                output_shift.next = reg_02
-        elif reg_02[0] == bool(0) and reader_bit and index_pointer == 1:
-            reg_01_latch.next = bool(0)
+            txData.next = dataIn
         else:
-            # print("reg_trans2: output_shift = 0x%x" % output_shift)
-            output_shift.next = concat(output_shift[7:0], bool(0))
-            
+            txData.next = concat(txData[7:0], bool(0))
+
     # Output Driver logic
     output_control = Signal(bool(0))
 
     @always_comb
     def output0():
         if output_control:
-            SDAS.next = bool(1)
+            sda_oen.next = bool(1)
         else:
-            SDAS.next = bool(0)
+            sda_oen.next = bool(0)
             
-    @always(SCL.negedge,RST.negedge)
+    @always(scl_i.negedge,reset_n.negedge)
     def output1():
-        if not RST:
-            SDAS.next = bool(1)
+        if not reset_n:
+            sda_oen.next = bool(1)
         elif start_detect:
-            SDAS.next = bool(1)
+            sda_oen.next = bool(1)
         elif lsb_bit:
-            SDAS.next = not (((state == STATE_DEV_ADDR) and address_detect) or
+            sda_oen.next = not (((state == STATE_DEV_ADDR) and address_detect) or
                                        (state == STATE_IDX_PTR) or
                                        (state == STATE_WRITE))
         elif ack_bit:
             # Deliver the first bit of the next slave-to-master transfer, if applicable.
             if (((state == STATE_READ) and master_ack) or
-                ((state == STATE_DEV_ADDR) and address_detect and read_write_bit)):
-                #print "output1: Deliver the first bit of the next slave-to-master transfer."
-                SDAS.next = output_shift[7]
+               ((state == STATE_DEV_ADDR) and address_detect and read_write_bit)):
+                # print "output1: Deliver the first bit of the next slave-to-master transfer."
+                sda_oen.next = txData[7]
             else:
-                SDAS.next = bool(1)
+                sda_oen.next = bool(1)
         elif state == STATE_READ:
-            #print "output1: Writing bit in STATE_READ (", int(output_shift[7]), ")"
-            SDAS.next = output_shift[7]
+            # print "output1: Writing bit in STATE_READ (", int(dataIn[7]), ")"
+            sda_oen.next = txData[7]
         else:
-            SDAS.next = bool(1)
+            sda_oen.next = bool(1)
                     
-    return start_detector0, start_detector1, start_detector2, stop_detector0, stop_detector1, stop_detector2, state_counter0, state_counter1, shift_register0, shift_register1, master_ack0, state_mach0, state_mach1, reg_trans0, reg_trans1, reg_trans2, output0, output1
+    return start_detector0, start_detector1, start_detector2, stop_detector0, stop_detector1, stop_detector2, state_counter0, state_counter1, shift_register0, shift_register1, master_ack0, state_mach0, state_mach1, reg_trans0, reg_trans2, output1
