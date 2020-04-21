@@ -40,27 +40,21 @@ def wir(path, name, wsi, wsp, wso, wr_list, user_list, wr_select_list, dr_select
     @always(wsp.WRCK.posedge)
     def capture_ff():
         if wsp.SelectWIR == bool(1) and wsp.CaptureWR == bool(1):
-            for i in range(width):
-                isr.next[i] = dr[i]
+            isr.next = dr
         elif wsp.SelectWIR == bool(1) and wsp.ShiftWR == bool(1):
-            for i in range(width):
-                if i == 0:
-                    wso.next = isr[i]
-                elif i == width - 1:
-                    isr.next[i] = wsi
-                    isr.next[i-1] = isr[i]
-                else:
-                    isr.next[i-1] = isr[i]
-        else:
-            wso.next = wso
+            isr.next = concat(wsi, isr[width:1])
 
-    @always(wsp.WRCK.posedge)
+    @always(wsp.WRCK.negedge)
     def update_ff():
         if wsp.WRSTN == bool(0):
             dr.next = intbv(0)[width:]
         elif wsp.SelectWIR == bool(1) and wsp.UpdateWR == bool(1):
             for i in range(width):
                 dr.next[i] = isr[i]
+
+    @always(wsp.WRCK.negedge)
+    def output():
+        wso.next = isr[0]
 
     @always_comb
     def decode_instr():
@@ -78,7 +72,7 @@ def wir(path, name, wsi, wsp, wso, wr_list, user_list, wr_select_list, dr_select
             raise AssertionError("decode_instr: Invalid instruction detected!", bin(dr))
 
     if not monitor:
-        return capture_ff, update_ff, decode_instr
+        return capture_ff, update_ff, decode_instr, output
     else:
         @instance
         def monitor_wsi():
@@ -124,7 +118,7 @@ def wir(path, name, wsi, wsp, wso, wr_list, user_list, wr_select_list, dr_select
 
         return monitor_wsi, monitor_wso,\
             capture_ff, update_ff, decode_instr,\
-            monitor_isr, monitor_dr
+            monitor_isr, monitor_dr, output
 
 
 @block

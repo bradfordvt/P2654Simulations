@@ -28,57 +28,48 @@ def sib_mux_post(path, name, si, from_ijtag_interface, so, to_si, to_ijtag_inter
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
     update_bit = Signal(bool(0))
-    tsr_data = Signal(bool(0))
-    
+    capture_bit = Signal(bool(0))
+
     @always(from_ijtag_interface.CLOCK.posedge)
     def captureFF():
         # print("Entering captureFF")
         if from_ijtag_interface.SELECT and from_ijtag_interface.CAPTURE:
-            # print("SEL and CE")
-            tsr_data.next = update_bit
+            capture_bit.next = update_bit
         elif from_ijtag_interface.SELECT and from_ijtag_interface.SHIFT:
-            # print("captureFF: SI=", si)
-            to_si.next = tsr_data
-            tsr_data.next = si
-        else:
-            to_si.next = to_si
+            capture_bit.next = si
+
+    @always(from_ijtag_interface.CLOCK.negedge)
+    def output():
+        to_si.next = capture_bit
 
     @always(from_ijtag_interface.CLOCK.negedge)
     def updateFF():
-        # print("Entering updateFF")
         if from_ijtag_interface.RESET == bool(1):
             update_bit.next = bool(0)
         elif from_ijtag_interface.SELECT and from_ijtag_interface.UPDATE:
-            # print("SEL and UE")
-            # update_bit.next = to_si
-            update_bit.next = tsr_data
-        else:
-            update_bit.next = update_bit
+            update_bit.next = capture_bit
 
     @always_comb
     def Mux_post():
         if update_bit == bool(1):
             so.next = from_so
         else:
-            so.next = tsr_data
+            so.next = to_si
 
     @always_comb
     def sel():
         to_ijtag_interface.RESET.next = from_ijtag_interface.RESET
         to_ijtag_interface.CLOCK.next = from_ijtag_interface.CLOCK
+        to_ijtag_interface.CAPTURE.next = from_ijtag_interface.CAPTURE
+        to_ijtag_interface.SHIFT.next = from_ijtag_interface.SHIFT
+        to_ijtag_interface.UPDATE.next = from_ijtag_interface.UPDATE
         if update_bit and from_ijtag_interface.SELECT:
             to_ijtag_interface.SELECT.next = from_ijtag_interface.SELECT
-            to_ijtag_interface.CAPTURE.next = from_ijtag_interface.CAPTURE
-            to_ijtag_interface.SHIFT.next = from_ijtag_interface.SHIFT
-            to_ijtag_interface.UPDATE.next = from_ijtag_interface.UPDATE
         else:
             to_ijtag_interface.SELECT.next = bool(0)
-            to_ijtag_interface.CAPTURE.next = bool(0)
-            to_ijtag_interface.SHIFT.next = bool(0)
-            to_ijtag_interface.UPDATE.next = bool(0)
 
     if not monitor:
-        return captureFF, updateFF, Mux_post, sel
+        return captureFF, updateFF, Mux_post, sel, output
     else:
         @instance
         def monitor_update_bit():
@@ -211,7 +202,7 @@ def sib_mux_post(path, name, si, from_ijtag_interface, so, to_si, to_ijtag_inter
             monitor_from_ijtag_interface_reset, monitor_to_ijtag_interface_capture, \
             monitor_to_ijtag_interface_shift, monitor_to_ijtag_interface_update, \
             monitor_to_ijtag_interface_select, monitor_to_ijtag_interface_reset, \
-            monitor_update_bit
+            monitor_update_bit, output
 
 
 @block

@@ -84,9 +84,9 @@ def simulatedmbist(path, name, clock, reset_n, control_register, cr_latch, statu
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
     state = Signal(t_State.IDLE)
-    id_count = Signal(intbv(0, min=0, max=initialize_delay + 1))
-    td_count = Signal(intbv(0, min=0, max=test_delay + 1))
-    ad_count = Signal(intbv(0, min=0, max=analyze_delay + 1))
+    id_count = Signal(intbv(0, min=0, max=initialize_delay*2 + 1))
+    td_count = Signal(intbv(0, min=0, max=test_delay*2 + 1))
+    ad_count = Signal(intbv(0, min=0, max=analyze_delay*2 + 1))
     power_usage_register.next = IDLE_POWER
     thermal_register.next = IDLE_TEMP
     internal_control_register = Signal(intbv(0)[8:])

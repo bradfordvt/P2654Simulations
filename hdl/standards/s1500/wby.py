@@ -7,6 +7,7 @@ from myhdl import *
 import os
 import os.path
 from hdl.standards.s1500.wsp import wsp
+from hdl.common.ScanRegister import ScanRegister
 
 period = 20  # clk frequency = 50 MHz
 
@@ -26,35 +27,33 @@ def wby(path, name, wsi, wsp_interface, select, wby_wso, width=1, monitor=False)
     :param width: The number of scan bits implemented by this WBY
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
-    isr = [Signal(bool(0)) for _ in range(width)]
+    master_select = Signal(bool(0))
+    D = Signal(intbv(val=0, _nrbits=width))
+    Q = Signal(intbv(val=0, _nrbits=width))
 
-    @always(wsp_interface.WRCK.posedge)
-    def shift_ff():
-        if wsp_interface.WRSTN == bool(0):
-            if width < 2:
-                isr[0].next = bool(0)
-            else:
-                for i in range(width):
-                    isr[i].next = bool(0)
-            wby_wso.next = bool(0)
-        elif wsp_interface.SelectWIR == bool(0) and select == bool(1) and wsp_interface.ShiftWR == bool(1):
-            if width < 2:
-                isr[0].next = wsi
-                wby_wso.next = isr[0]
-            else:
-                for i in range(width):
-                    if i == 0:
-                        isr[i].next = wsi
-                    elif i == width - 1:
-                        wby_wso.next = isr[i]
-                        isr[i].next = isr[i - 1]
-                    else:
-                        isr[i].next = isr[i - 1]
-        else:
-            wby_wso.next = wby_wso
+    sr_inst = ScanRegister(
+        path + '.' + name,
+        name + '_SR',
+        wsi,
+        wsp_interface.CaptureWR,
+        wsp_interface.ShiftWR,
+        wsp_interface.UpdateWR,
+        master_select,
+        wsp_interface.WRSTN,
+        wsp_interface.WRCK,
+        wby_wso,
+        D,
+        Q,
+        width=width,
+        monitor=monitor
+    )
+
+    @always_comb
+    def select_process():
+        master_select.next = select and not wsp_interface.SelectWIR
 
     if not monitor:
-        return shift_ff
+        return sr_inst, select_process
     else:
         @instance
         def monitor_wsi():
@@ -84,16 +83,8 @@ def wby(path, name, wsi, wsp_interface, select, wby_wso, width=1, monitor=False)
                 yield wsp_interface.ShiftWR
                 print("\t\twby({:s}): wsp_interface.ShiftWR".format(path + '.' + name), wsp_interface.ShiftWR)
 
-        @instance
-        def monitor_isr():
-            print("\t\twby({:s}): isr".format(path + '.' + name), isr)
-            while 1:
-                yield isr
-                print("\t\twby({:s}): isr".format(path + '.' + name), isr)
-
-        return shift_ff, \
-            monitor_wsi, monitor_wby_wso, monitor_wsp_interface_shiftwr, monitor_select, \
-            monitor_isr
+        return sr_inst, select_process, \
+            monitor_wsi, monitor_wby_wso, monitor_wsp_interface_shiftwr, monitor_select
 
 
 @block
@@ -107,10 +98,10 @@ def wby_tb(monitor=False):
     lo = bool(0)
     width = 1
     # data = [hi, lo, hi, hi, lo]
-    data = [Signal(bool(1)), Signal(bool(0)), Signal(bool(1)), Signal(bool(1)), Signal(bool(0))]
-    ldata = len(data)
+    data = Signal(intbv('01101'))
+    ldata = 5
     # expect = [lo, hi, lo, hi, hi, lo]
-    expect = [Signal(bool(0)), Signal(bool(1)), Signal(bool(0)), Signal(bool(1)), Signal(bool(1)), Signal(bool(0))]
+    expect = Signal(intbv('011010'))
     wsi = Signal(bool(0))
     wby_wso = Signal(bool(0))
     select = Signal(bool(0))
@@ -153,9 +144,14 @@ def wby_tb(monitor=False):
         yield delay(10)
         wsp_interface_inst.WRSTN.next = hi
         yield delay(10)
-        # Write Shift value
-        wsp_interface_inst.ShiftWR.next = hi
+        # Capture Value of bool(0)
         select.next = hi
+        wsp_interface_inst.CaptureWR.next = hi
+        yield wsp_interface_inst.WRCK.negedge
+        yield wsp_interface_inst.WRCK.posedge
+        # Write Shift value
+        wsp_interface_inst.CaptureWR.next = lo
+        wsp_interface_inst.ShiftWR.next = hi
         yield wsp_interface_inst.WRCK.negedge
         for i in range(ldata):
             wsi.next = data[i]
@@ -166,6 +162,7 @@ def wby_tb(monitor=False):
         yield wsp_interface_inst.WRCK.posedge
         yield wsp_interface_inst.WRCK.negedge
         assert (wby_wso == expect[len(data)])
+
         yield delay(100)
 
         raise StopSimulation()
@@ -181,8 +178,9 @@ def convert():
     width = 1
     wsi = Signal(bool(0))
     wby_wso = Signal(bool(0))
-    select = Signal(bool(0))
+    select = Signal(bool(1))
     wsp_interface_inst = wsp()
+    wsp_interface_inst.SelectWIR = Signal(bool(0))
 
     wby_inst = wby("DEMO", "WBY0", wsi, wsp_interface_inst, select, wby_wso, width=width, monitor=False)
 

@@ -24,27 +24,28 @@ def SELWIR(path, name, si, ijtag_interface, so, select_wir, monitor=False):
     :param select_wir: Select WIR signal to be controlled by this register
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
-    isr = Signal(bool(0))
+    isr = Signal(bool(1))
 
     @always(ijtag_interface.CLOCK.posedge)
     def capture_ff():
-        if ijtag_interface.SELECT == bool(0) and ijtag_interface.CAPTURE == bool(1):
+        if ijtag_interface.SELECT == bool(1) and ijtag_interface.CAPTURE == bool(1):
             isr.next = select_wir
-        elif ijtag_interface.SELECT == bool(0) and ijtag_interface.SHIFT == bool(1):
+        elif ijtag_interface.SELECT == bool(1) and ijtag_interface.SHIFT == bool(1):
             isr.next = si
-            so.next = isr
-        else:
-            so.next = so
 
-    @always(ijtag_interface.CLOCK.posedge)
+    @always(ijtag_interface.CLOCK.negedge)
     def update_ff():
-        if ijtag_interface.RESET == bool(0):
-            select_wir.next = bool(0)
-        elif ijtag_interface.SELECT == bool(0) and ijtag_interface.UPDATE == bool(1):
+        if ijtag_interface.RESET == bool(1):
+            select_wir.next = bool(1)
+        elif ijtag_interface.SELECT == bool(1) and ijtag_interface.UPDATE == bool(1):
             select_wir.next = isr
 
+    @always(ijtag_interface.CLOCK.negedge)
+    def output():
+        so.next = isr
+
     if not monitor:
-        return capture_ff, update_ff
+        return capture_ff, update_ff, output
     else:
         @instance
         def monitor_si():
@@ -111,7 +112,7 @@ def SELWIR(path, name, si, ijtag_interface, so, select_wir, monitor=False):
 
         return monitor_si, monitor_ce, monitor_se, monitor_ue, monitor_select_wir, monitor_reset, \
                monitor_clock, monitor_so, capture_ff, update_ff, \
-               monitor_isr
+               monitor_isr, output
 
 
 @block
@@ -123,8 +124,9 @@ def SELWIR_tb(monitor=False):
     """
     si = Signal(bool(0))
     so = Signal(bool(0))
-    select_wir = Signal(bool(0))
+    select_wir = Signal(bool(1))
     ijtag_interface = IJTAGInterface()
+    ijtag_interface.SELECT = Signal(bool(1))
     si_data = Signal(bool(0))
     so_data = Signal(bool(0))
 
@@ -162,9 +164,9 @@ def SELWIR_tb(monitor=False):
         H = bool(1)
         L = bool(0)
         # Reset the instrument
-        ijtag_interface.RESET.next = bool(0)
-        yield delay(10)
         ijtag_interface.RESET.next = bool(1)
+        yield delay(10)
+        ijtag_interface.RESET.next = bool(0)
         yield delay(10)
 
         # Start the Capture transition operation
@@ -180,13 +182,13 @@ def SELWIR_tb(monitor=False):
         si.next = bool(0)  # First scan
         yield ijtag_interface.CLOCK.posedge
         yield ijtag_interface.CLOCK.negedge
+        assert(so == bool(1))
 
         # Write Update value
         ijtag_interface.SHIFT.next = L
         ijtag_interface.UPDATE.next = H
         yield ijtag_interface.CLOCK.negedge
         yield ijtag_interface.CLOCK.posedge
-        assert(so == bool(0))
         assert(select_wir == bool(0))
 
         # Start the Capture transition operation
@@ -202,13 +204,13 @@ def SELWIR_tb(monitor=False):
         si.next = bool(1)  # Second scan
         yield ijtag_interface.CLOCK.posedge
         yield ijtag_interface.CLOCK.negedge
+        assert (so == bool(0))
 
         # Write Update value
         ijtag_interface.SHIFT.next = L
         ijtag_interface.UPDATE.next = H
         yield ijtag_interface.CLOCK.negedge
         yield ijtag_interface.CLOCK.posedge
-        assert (so == bool(0))
         assert (select_wir == bool(1))
 
         # Start the Capture transition operation
@@ -221,16 +223,16 @@ def SELWIR_tb(monitor=False):
         ijtag_interface.CAPTURE.next = L
         ijtag_interface.SHIFT.next = H
         yield ijtag_interface.CLOCK.negedge
-        si.next = bool(0) # Third scan
+        si.next = bool(0)  # Third scan
         yield ijtag_interface.CLOCK.posedge
         yield ijtag_interface.CLOCK.negedge
+        assert (so == bool(1))
 
         # Write Update value
         ijtag_interface.SHIFT.next = L
         ijtag_interface.UPDATE.next = H
         yield ijtag_interface.CLOCK.negedge
         yield ijtag_interface.CLOCK.posedge
-        assert (so == bool(1))
         assert (select_wir == bool(0))
 
         raise StopSimulation()
