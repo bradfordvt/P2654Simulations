@@ -29,14 +29,7 @@ def ScanRegister(path, name, si, ce, se, ue, sel, reset, clock, so, di, do, widt
     :param width: The number of bits contained in this register
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
-    isr = Signal(intbv(0)[width:])
-
-    @always_comb
-    def output():
-        if width == 1:
-            so.next = isr
-        else:
-            so.next = isr[0]
+    isr = Signal(intbv(val=0, _nrbits=width))
 
     @always(clock.posedge)
     def capture_ff():
@@ -50,14 +43,9 @@ def ScanRegister(path, name, si, ce, se, ue, sel, reset, clock, so, di, do, widt
             if width == 1:
                 isr.next[0] = si
             else:
-                # isr.next = concat(si, isr[width:1])
-                i = 1
-                while i < width:
+                for i in range(1, width):
                     isr.next[i - 1] = isr[i]
-                    i = i + 1
                 isr.next[width - 1] = si
-        # else:
-            # so.next = so
 
     @always(clock.negedge)
     def update_ff():
@@ -70,6 +58,10 @@ def ScanRegister(path, name, si, ce, se, ue, sel, reset, clock, so, di, do, widt
             else:
                 for i in range(width):
                     do.next[i] = isr[i]
+
+    @always(clock.negedge)
+    def output():
+        so.next = isr[0]
 
     if not monitor:
         return capture_ff, update_ff, output
@@ -153,7 +145,7 @@ def ScanRegister(path, name, si, ce, se, ue, sel, reset, clock, so, di, do, widt
 
         return monitor_si, monitor_ce, monitor_se, monitor_ue, monitor_sel, monitor_reset, \
             monitor_clock, monitor_so, monitor_di, monitor_do, capture_ff, update_ff, \
-            monitor_isr
+            monitor_isr, output
 
 
 @block
@@ -166,10 +158,10 @@ def ScanRegister_tb(monitor=False):
     width = 9
     si = Signal(bool(0))
     so = Signal(bool(0))
-    di = Signal(intbv('010100000')[width:])
-    do = Signal(intbv(0)[width:])
-    si_data = Signal(intbv('000000101')[width:])
-    so_data = [Signal(bool(0)) for _ in range(width)]
+    di = Signal(intbv('010100000'))
+    do = Signal(intbv(val=0, _nrbits=width))
+    si_data = Signal(intbv('000000101'))
+    so_data = Signal(intbv(val=0, _nrbits=width))
     sel = Signal(bool(1))
     ce = Signal(bool(0))
     se = Signal(bool(0))
@@ -177,7 +169,7 @@ def ScanRegister_tb(monitor=False):
     reset = Signal(bool(0))
     clock = Signal(bool(0))
     t = 0
-    sreg_inst = ScanRegister('TOP', 'ScanRegister0', si, ce, se, ue, sel, reset, clock, so, di, do, width=9,
+    sreg_inst = ScanRegister('TOP', 'ScanRegister0', si, ce, se, ue, sel, reset, clock, so, di, do, width=width,
                              monitor=monitor)
 
     @instance
@@ -234,7 +226,7 @@ def ScanRegister_tb(monitor=False):
             si.next = si_data[i]
             yield clock.posedge
             yield clock.negedge
-            so_data[i].next = so
+            so_data.next[i] = so
         # Write Update value
         se.next = L
         ue.next = H
