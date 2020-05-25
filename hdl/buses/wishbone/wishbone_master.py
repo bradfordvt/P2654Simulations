@@ -88,16 +88,20 @@ class WishboneMaster:
 
         @instance
         def stimulus():
-            yield delay(100)
+            # yield delay(100)
             while 1:
+                if self.Q.empty():
+                    yield delay(1)
+                    continue
+                yield delay(1)
                 yield self.Q.get()
                 cmd = self.Q.item
                 print("cmd = (", cmd[0], " ", hex(cmd[1]), " ",  hex(cmd[2]), ")")
                 if cmd[0] == "reset":
-                    # print("Processing Reset")
                     self.localReset.next = bool(1)
                     yield self.wb_interface.rst_i.posedge
                     self.localReset.next = bool(0)
+                    self.R.put(("DONE", 0))
                 elif cmd[0] == "write":
                     print("Processing Write")
                     self._write.next = True
@@ -167,11 +171,10 @@ class WishboneMaster:
         #         monitor_done
 
     def write(self, addr, data):
+        print("Entering wb write.")
         self.Q.put(("write", addr, data))
-        # yield delay(100)
-        sleep(0.1)
         while not self.Q.empty():
-            pass
+            sleep(0.1)
         ret = self.R.get()
         if ret[0] == "ERR":
             self.error = ret[1]
@@ -183,11 +186,10 @@ class WishboneMaster:
             return False
 
     def read(self, addr):
+        print("Entering wb read!")
         self.Q.put(("read", addr, 0))
-        # yield delay(100)
-        sleep(0.1)
         while not self.Q.empty():
-            pass
+            sleep(0.1)
         ret = self.R.get()
         if ret[0] == "ERR":
             self.error = ret[1]
@@ -202,6 +204,8 @@ class WishboneMaster:
 
     def terminate(self):
         self.Q.put(("terminate", 0, 0))
+        while not self.Q.empty():
+            sleep(0.1)
         ret = self.R.get()
         if ret[0] == "ERR":
             self.error = ret[1]
@@ -217,3 +221,19 @@ class WishboneMaster:
 
     def get_error(self):
         return self.error
+
+    def reset_bus(self):
+        self.Q.put(("reset", 0, 0))
+        while not self.Q.empty():
+            sleep(0.1)
+        ret = self.R.get()
+        if ret[0] == "ERR":
+            self.error = ret[1]
+            return False
+        elif ret[0] == "DONE":
+            return True
+        else:
+            self.error = "UNKNOWN"
+            return False
+
+
