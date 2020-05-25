@@ -246,24 +246,24 @@ def JTAGCtrlMaster(parent, name,
                     control_interface.busy.next = True
                     int_TMS_StateIn.next = control_interface.state_start
                     # Fix "Signal has multiple drivers: self_TMSState" error in toVerilog conversion
-                    # TMSState.next = TypeTMSStates.prepare_for_working
+                    TMSState.next = TypeTMSStates.prepare_for_working  # Need to move due to multiple driver conflict in Verilog
                     # Done Fix
                     StateJTAGMaster.next = TypeStateJTAGMaster.State_TapToStart
                 # Fix "Signal has multiple drivers: self_BRAM_Din" error in toVerilog conversion
-                # BRAM_WR.next = wr
-                # BRAM_Din.next = din
+                ram_interface.Write.next = control_interface.wr  # Need to move due to multiple driver conflict in Verilog
+                ram_interface.Din.next = control_interface.din  # Need to move due to multiple driver conflict in Verilog
                 # Done Fix
             elif StateJTAGMaster == TypeStateJTAGMaster.State_TapToStart:
                 if TMSState == TypeTMSStates.idle:
                     StateJTAGMaster.next = TypeStateJTAGMaster.State_Shift
                     # Fix "Signal has multiple drivers: self_shift_state" error in toVerilog conversion
-                    # shift_state.next = TypeShiftStates.prepare_for_working
+                    shift_state.next = TypeShiftStates.prepare_for_working  # Need to move due to multiple driver conflict in Verilog
                     # Done Fix
             elif StateJTAGMaster == TypeStateJTAGMaster.State_Shift:
                 if shift_state == TypeShiftStates.idle:
                     int_TMS_StateIn.next = control_interface.state_end
                     # Fix "Signal has multiple drivers: self_TMSState" error in toVerilog conversion
-                    # TMSState.next = TypeTMSStates.prepare_for_working
+                    TMSState.next = TypeTMSStates.prepare_for_working  # Need to move due to multiple driver conflict in Verilog
                     # Done Fix
                     StateJTAGMaster.next = TypeStateJTAGMaster.State_TapToEnd
             elif StateJTAGMaster == TypeStateJTAGMaster.State_TapToEnd:
@@ -285,15 +285,15 @@ def JTAGCtrlMaster(parent, name,
             shift_state.next = TypeShiftStates.idle
         else:
             if shift_state == TypeShiftStates.idle:
-                # pass
+                pass
                 # Fix "Signal has multiple drivers: self_BRAM_Din" error in toVerilog conversion
-                ram_interface.Write.next = control_interface.wr
-                ram_interface.Din.next = control_interface.din
+                # ram_interface.Write.next = control_interface.wr  # Proposed fix
+                # ram_interface.Din.next = control_interface.din  # Proposed fix
                 # Done Fix
                 # Fix "Signal has multiple drivers: self_shift_state" error in toVerilog conversion
-                if StateJTAGMaster == TypeStateJTAGMaster.State_TapToStart:
-                    if TMSState == TypeTMSStates.idle:
-                        shift_state.next = TypeShiftStates.prepare_for_working
+                # if StateJTAGMaster == TypeStateJTAGMaster.State_TapToStart:  # Proposed fix
+                #     if TMSState == TypeTMSStates.idle:  # Proposed fix
+                #         shift_state.next = TypeShiftStates.prepare_for_working  # Proposed fix
                 # Done Fix
             elif shift_state == TypeShiftStates.prepare_for_working:
                 if control_interface.bit_count == intbv("0000000000000000"):
@@ -304,15 +304,18 @@ def JTAGCtrlMaster(parent, name,
             elif shift_state == TypeShiftStates.shifting1:
                 # Fix "Signal has multiple drivers: self_int_TMS_CurrState" error in toVerilog conversion
                 # TMS: Last bit, set at TMS state change
-                # if bit_count == (int_bit_count + 1):
-                #     if int_TMS_CurrState != state_end:
-                #         tms.next = 1
-                #         int_TMS_CurrState.next = int_TMS_CurrState + 1
+                if control_interface.bit_count == (int_bit_count + 1):  # Need to move due to multiple driver conflict in Verilog
+                    if int_TMS_CurrState != control_interface.state_end:  # Need to move due to multiple driver conflict in Verilog
+                        control_interface.jtag_interface.TMS.next = True  # Need to move due to multiple driver conflict in Verilog
+                        int_TMS_CurrState.next = int_TMS_CurrState + 1  # Need to move due to multiple driver conflict in Verilog
                 # Done Fix
                 # Push TDI
                 control_interface.tdi.next = ram_interface.Dout[int_bit_count % control_interface.data_width]
                 shift_state.next = TypeShiftStates.shifting2
             elif shift_state == TypeShiftStates.shifting2:
+                # if int_TMS_CurrState == SHIFT_DR or int_TMS_CurrState == SHIFT_IR:
+                #     shift_tck.next = False
+                #     shift_state.next = TypeShiftStates.shifting3
                 shift_tck.next = False
                 shift_state.next = TypeShiftStates.shifting3
             elif shift_state == TypeShiftStates.shifting3:
@@ -342,12 +345,12 @@ def JTAGCtrlMaster(parent, name,
             int_TMS_CurrState.next = TEST_LOGIC_RESET
         else:
             if TMSState == TypeTMSStates.idle:
-                # pass
+                pass
                 # Fix "Signal has multiple drivers: self_TMSState" error in toVerilog conversion
-                if control_interface.shift_strobe:
-                    TMSState.next = TypeTMSStates.prepare_for_working
-                elif shift_state == TypeShiftStates.idle:
-                    TMSState.next = TypeTMSStates.prepare_for_working
+                # if control_interface.shift_strobe:  # Proposed fix
+                #     TMSState.next = TypeTMSStates.prepare_for_working  # Proposed fix
+                # elif shift_state == TypeShiftStates.idle:
+                #     TMSState.next = TypeTMSStates.prepare_for_working
                 # Done Fix
             elif TMSState == TypeTMSStates.prepare_for_working:
                 if int_TMS_CurrState != int_TMS_StateIn:
@@ -396,16 +399,17 @@ def JTAGCtrlMaster(parent, name,
                         control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_DR
                 elif int_TMS_CurrState == SHIFT_DR:
+                    # Fix "Signal has multiple drivers: self_int_TMS_CurrState" error in toVerilog conversion
+                    # TMS: Last bit, set at TMS state change
+                    # if (control_interface.bit_count == (int_bit_count - 1)) and (  # Proposed fix
+                    #         int_TMS_CurrState != control_interface.state_end):  # Proposed fix
+                    #     control_interface.jtag_interface.TMS.next = True  # Proposed fix
+                    #     int_TMS_CurrState.next = EXIT1_DR  # Proposed fix
+                    # Done Fix
+                    # elif int_TMS_StateIn == SHIFT_DR:
                     if int_TMS_StateIn == SHIFT_DR:
                         control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_DR
-                    # Fix "Signal has multiple drivers: self_int_TMS_CurrState" error in toVerilog conversion
-                    # TMS: Last bit, set at TMS state change
-                    elif (control_interface.bit_count == (int_bit_count + 1)) and (
-                            int_TMS_CurrState != control_interface.state_end):
-                        control_interface.jtag_interface.TMS.next = True
-                        int_TMS_CurrState.next = EXIT1_DR
-                    # Done Fix
                     else:
                         control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT1_DR
@@ -452,16 +456,17 @@ def JTAGCtrlMaster(parent, name,
                         control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_IR
                 elif int_TMS_CurrState == SHIFT_IR:
+                    # Fix "Signal has multiple drivers: self_int_TMS_CurrState" error in toVerilog conversion
+                    # TMS: Last bit, set at TMS state change
+                    # if (control_interface.bit_count == (int_bit_count - 1)) and (  # Proposed fix
+                    #             int_TMS_CurrState != control_interface.state_end):  # Proposed fix
+                    #     control_interface.jtag_interface.TMS.next = True  # Proposed fix
+                    #     int_TMS_CurrState.next = EXIT1_IR  # Proposed fix
+                    # Done Fix
+                    # elif int_TMS_StateIn == SHIFT_IR:  # Proposed fix
                     if int_TMS_StateIn == SHIFT_IR:
                         control_interface.jtag_interface.TMS.next = False
                         int_TMS_CurrState.next = SHIFT_IR
-                    # Fix "Signal has multiple drivers: self_int_TMS_CurrState" error in toVerilog conversion
-                    # TMS: Last bit, set at TMS state change
-                    elif (control_interface.bit_count == (int_bit_count + 1)) and (
-                                int_TMS_CurrState != control_interface.state_end):
-                        control_interface.jtag_interface.TMS.next = True
-                        int_TMS_CurrState.next = EXIT1_IR
-                    # Done Fix
                     else:
                         control_interface.jtag_interface.TMS.next = True
                         int_TMS_CurrState.next = EXIT1_IR
