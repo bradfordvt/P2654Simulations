@@ -45,6 +45,8 @@ from time import sleep
 from hdl.boards.i2ctest.i2ctest import I2CTest
 from hdl.ate.ate import ATE
 from hdl.hosts.jtaghost.JTAG_Ctrl_Master import SHIFT_DR, SHIFT_IR, RUN_TEST_IDLE
+from hdl.boards.common.BoardGPIOInterface import BoardGPIOInterface
+from hdl.boards.common.BoardI2CInterface import BoardI2CInterface
 
 
 def write_vector(ate_inst, addr, data):
@@ -547,8 +549,14 @@ def i2c_multibyte_read(ate_inst, dev_address, reg_address):
 
 
 def i2ctest_bench():
+    gpio_if = BoardGPIOInterface()
+    i2c_if = BoardI2CInterface()
     board_inst = I2CTest()
+    board_inst.configure_gpio(gpio_if)
+    board_inst.configure_i2c(i2c_if)
     ate_inst = ATE(board_inst)
+    ate_inst.configure_gpio(gpio_if)
+    ate_inst.configure_i2c(i2c_if)
     ate_inst.start_simulation()
     sleep(1)
 
