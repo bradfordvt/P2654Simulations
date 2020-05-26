@@ -11,6 +11,7 @@ from hdl.instruments.PseudoLED.PseudoLED import PseudoLED
 
 class P2654Board1(AbstractBoard):
     def __init__(self, parent, name):
+        super().__init__()
         self.parent = parent
         self.name = name
         # # SYSCON Signals
