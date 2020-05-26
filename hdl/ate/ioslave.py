@@ -37,6 +37,7 @@ from hdl.buses.wishbone.wbgpio.wbgpio import wbgpio
 from hdl.buses.wishbone.wbjtag.wbjtag import wbjtag
 from hdl.buses.wishbone.wbi2c.wbi2chost import wbi2chost
 from hdl.buses.wishbone.wbspi.wbspi import wbspi
+from hdl.buses.wishbone.wbjtag.wbjtag2 import wbjtag2
 
 
 @block
@@ -53,6 +54,11 @@ def ioslave(i_clk, i_reset,
             trst,
             tdi,
             tdo,
+            tck2,
+            tms2,
+            trst2,
+            tdi2,
+            tdo2,
             # I2C wires
             sck_o,
             sck_i,
@@ -71,6 +77,7 @@ def ioslave(i_clk, i_reset,
             monitor=False):
     gpio_data = Signal(intbv(0)[32:])
     jtag_data = Signal(intbv(0)[32:])
+    jtag2_data = Signal(intbv(0)[32:])
     i2c_data = Signal(intbv(0)[32:])
     spi_data = Signal(intbv(0)[32:])
     r_wb_data = Signal(intbv(0)[32:])
@@ -78,14 +85,17 @@ def ioslave(i_clk, i_reset,
     r_wb_ack = Signal(bool(0))
     gpio_ack = Signal(bool(0))
     jtag_ack = Signal(bool(0))
+    jtag2_ack = Signal(bool(0))
     i2c_ack = Signal(bool(0))
     spi_ack = Signal(bool(0))
     gpio_cyc = Signal(bool(0))
     jtag_cyc = Signal(bool(0))
+    jtag2_cyc = Signal(bool(0))
     i2c_cyc = Signal(bool(0))
     spi_cyc = Signal(bool(0))
     gpio_stb = Signal(bool(0))
     jtag_stb = Signal(bool(0))
+    jtag2_stb = Signal(bool(0))
     i2c_stb = Signal(bool(0))
     spi_stb = Signal(bool(0))
 
@@ -99,6 +109,9 @@ def ioslave(i_clk, i_reset,
                        sck_o, sck_i, sck_e, sda_o, sda_i, sda_e)
     spidev = wbspi(i_clk, i_reset, spi_cyc, spi_stb, i_wb_we, i_wb_addr, i_wb_data, spi_data, spi_ack,
                    ss, sclk, mosi, miso, N=32)
+    jtag2dev = wbjtag2(i_clk, i_reset, jtag2_cyc, jtag2_stb,
+                     i_wb_we, i_wb_addr, i_wb_data, jtag2_data, jtag2_ack,
+                     tdi2, tdo2, tck2, tms2, trst2, monitor=False)
 
     @always(i_clk.posedge)
     def comb0():
@@ -114,6 +127,11 @@ def ioslave(i_clk, i_reset,
                     r_wb_data.next = spi_data
                 elif i_wb_addr[11] == 1 and i_wb_addr[10] == 1:  # I2C register
                     r_wb_data.next = i2c_data
+                else:
+                    r_wb_data.next = intbv(0)[32:]
+            elif i_wb_addr[32:12] == intbv(3)[20:]:  # Address is in range of IO block
+                if i_wb_addr[11] == 0:  # TAPSim block of registers
+                    r_wb_data.next = jtag2_data
                 else:
                     r_wb_data.next = intbv(0)[32:]
 
@@ -133,12 +151,18 @@ def ioslave(i_clk, i_reset,
             elif i_wb_addr[11] == 1 and i_wb_addr[10] == 1:  # I2C register
                 # print("ioslave.comb1: i2c_ack = ", i2c_ack)
                 r_wb_ack.next = i2c_ack
+        elif i_wb_addr[32:12] == intbv(3)[20:]:  # Address is in range of IO block
+            if i_wb_addr[11] == 0:  # TAPSim block of registers
+                # print("ioslave.comb1: jtag_ack = ", jtag_ack)
+                r_wb_ack.next = jtag2_ack
 
     @always(i_clk.posedge)
     def comb2():
         gpio_cyc.next = False
         jtag_cyc.next = False
         i2c_cyc.next = False
+        jtag2_cyc.next = False
+
         if i_wb_addr[32:12] == intbv(1)[20:]:  # Address is in range of IO block
             if i_wb_addr[11] == 0:  # JTAGCtrlMaster block of registers
                 jtag_cyc.next = i_wb_cyc
@@ -150,11 +174,16 @@ def ioslave(i_clk, i_reset,
                 spi_cyc.next = i_wb_cyc
             elif i_wb_addr[11] == 1 and i_wb_addr[10] == 1:  # I2C register
                 i2c_cyc.next = i_wb_cyc
+        elif i_wb_addr[32:12] == intbv(3)[20:]:  # Address is in range of IO block
+            if i_wb_addr[11] == 0:  # TAPSim block of registers
+                jtag2_cyc.next = i_wb_cyc
 
     @always(i_clk.posedge)
     def logic0():
         # o_wb_ack.next = i_wb_stb and i_wb_cyc
         if i_wb_addr[32:12] == intbv(1)[20:]:
+            o_wb_data.next = r_wb_data
+        elif i_wb_addr[32:12] == intbv(3)[20:]:
             o_wb_data.next = r_wb_data
         o_wb_stall.next = False
 
@@ -165,12 +194,16 @@ def ioslave(i_clk, i_reset,
         if i_wb_addr[32:12] == intbv(1)[20:]:
             # print("o_wb_ack.next = r_wb_ack")
             o_wb_ack.next = r_wb_ack
+        elif i_wb_addr[32:12] == intbv(3)[20:]:
+            # print("o_wb_ack.next = r_wb_ack")
+            o_wb_ack.next = r_wb_ack
 
     @always_comb
     def comb3():
         gpio_stb.next = i_wb_stb and (i_wb_addr[32:] == intbv(0x00001800))
         jtag_stb.next = i_wb_stb and (i_wb_addr[32:] > intbv(0x00000FFF)) and (i_wb_addr[32:] < intbv(0x00001405))
+        jtag2_stb.next = i_wb_stb and (i_wb_addr[32:] > intbv(0x00002FFF)) and (i_wb_addr[32:] < intbv(0x00003406))
         i2c_stb.next = i_wb_stb and (i_wb_addr[32:] > intbv(0x00001BFF)) and (i_wb_addr[32:] < intbv(0x00001C05))
         spi_stb.next = i_wb_stb and (i_wb_addr[32:] > intbv(0x00001C2F)) and (i_wb_addr[32:] < intbv(0x00001C32))
 
-    return logic0, logic1, comb3, comb0, comb1, comb2, gpiodev, jtagdev, i2cdev, spidev
+    return logic0, logic1, comb3, comb0, comb1, comb2, gpiodev, jtagdev, i2cdev, spidev, jtag2dev
