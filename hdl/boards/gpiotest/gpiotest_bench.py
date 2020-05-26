@@ -7,11 +7,15 @@ from myhdl import *
 from time import sleep
 from hdl.boards.gpiotest.gpiotest import GPIOTest
 from hdl.ate.ate import ATE
+from hdl.boards.common.BoardGPIOInterface import BoardGPIOInterface
 
 
 def gpiotest_bench():
+    gpio_if = BoardGPIOInterface()
     board_inst = GPIOTest()
+    board_inst.configure_gpio(gpio_if)
     ate_inst = ATE(board_inst)
+    ate_inst.configure_gpio(gpio_if)
     ate_inst.start_simulation()
     sleep(1)
 
