@@ -57,11 +57,11 @@ def wbjtag(i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, wb_addr, i_wb_data, o_wb
         # control_interface.clk.next = i_clk
         # control_interface.reset_n.next = reset_n
         status_register.next[0] = 1 if control_interface.busy else 0
-        tck.next = control_interface.jtag_interface.TCK
-        tms.next = control_interface.jtag_interface.TMS
-        trst.next = control_interface.jtag_interface.TRST
-        tdi.next = control_interface.tdi
-        tdo.next = control_interface.tdo
+        # tck.next = control_interface.jtag_interface.TCK
+        # tms.next = control_interface.jtag_interface.TMS
+        # trst.next = control_interface.jtag_interface.TRST
+        # tdi.next = control_interface.tdi
+        # tdo.next = control_interface.tdo
         control_interface.bit_count.next = bit_count_register
         control_interface.state_start.next = start_state_register
         control_interface.state_end.next = end_state_register
