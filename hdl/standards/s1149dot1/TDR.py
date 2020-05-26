@@ -13,13 +13,14 @@ period = 20  # clk frequency = 50 MHz
 
 
 @block
-def TDR(path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tdr_width=9, monitor=False):
+def TDR(path, name, D, Q, scan_in, tck, tap_interface, local_reset, scan_out, select, tdr_width=9, monitor=False):
     """
     :param path: Dot path of the parent of this instance
     :param name: Instance name for debug logging (path instance)
     :param D: tdr_width bit wide Signal D = Signal(intbv(0)[tdr_width:])
     :param Q: tdr_width bit wide Signal Q = Signal(intbv(0)[tdr_width:])
     :param scan_in: Input signal for data scanned into TDR
+    :param tck: TAP TCK
     :param tap_interface: TAPInterface object containing:
         CaptureDR: Signal used to enable the capture of D
         ShiftDR: Signal used to shift the data out ScanOut from the TDR
@@ -29,10 +30,12 @@ def TDR(path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tdr_wid
         tap_interface.ClockDR: Test tap_interface.ClockDR used to synchronize the TDR to the TAP
     :param local_reset: Active low Signal used by the internal hardware to reset the TDR
     :param scan_out: Output signal where data is scanned from the TDR
+    :param select: Select from TIR decoder for this register
     :param tdr_width: The number of bits contained in this register
     :param monitor: False=Do not turn on the signal monitors, True=Turn on the signal monitors
     """
     master_reset = Signal(bool(1))
+    master_select = Signal(bool(0))
     
     sr_inst = ScanRegister(
         path + '.' + name,
@@ -43,7 +46,7 @@ def TDR(path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tdr_wid
         tap_interface.UpdateDR,
         tap_interface.Select,
         master_reset,
-        tap_interface.ClockDR,
+        tck,
         scan_out,
         D,
         Q,
@@ -55,8 +58,12 @@ def TDR(path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tdr_wid
     def reset_process():
         master_reset.next = local_reset and tap_interface.Reset
 
+    @always_comb
+    def select_process():
+        master_select.next = tap_interface.Select and select
+
     if monitor == False:
-        return sr_inst
+        return sr_inst, reset_process, select_process
     else:
         @instance
         def monitor_scan_in():
@@ -72,7 +79,7 @@ def TDR(path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tdr_wid
                 yield scan_out
                 print("\t\tTDR({:s}) scan_out:".format(path + name), scan_out)
 
-        return monitor_scan_in, monitor_scan_out, sr_inst, reset_process
+        return monitor_scan_in, monitor_scan_out, sr_inst, reset_process, select_process
 
 
 @block
@@ -83,6 +90,7 @@ def TDR_tb(monitor=False):
     :return: A list of generators for this logic
     """
     width = 9
+    tck = Signal(bool(0))
     tap_interface = TAPInterface()
     si = Signal(bool(0))
     so = Signal(bool(0))
@@ -93,13 +101,14 @@ def TDR_tb(monitor=False):
     si_data[width - 7] = Signal(bool(1))
     so_data = [Signal(bool(0)) for _ in range(width)]
     local_reset = Signal(bool(1))
+    select = Signal(bool(1))
     t = 0
-    tdr_inst = TDR('TOP', 'TDR0', D, Q, si, tap_interface, local_reset, so, tdr_width=9, monitor=monitor)
+    tdr_inst = TDR('TOP', 'TDR0', D, Q, si, tck, tap_interface, local_reset, so, select, tdr_width=9, monitor=monitor)
 
     @instance
     def clkgen():
         while True:
-            tap_interface.ClockDR.next = not tap_interface.ClockDR
+            tck.next = not tck
             yield delay(period // 2)
 
     @instance  # reset signal

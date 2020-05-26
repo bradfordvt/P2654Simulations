@@ -13,13 +13,14 @@ period = 20  # clk frequency = 50 MHz
 
 
 @block
-def TIR(path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tir_width=9, monitor=False):
+def TIR(path, name, D, Q, scan_in, tck, tap_interface, local_reset, scan_out, tir_width=9, monitor=False):
     """
     :param path: Dot path of the parent of this instance
     :param name: Instance name for debug logging (path instance)
     :param D: tir_width bit wide Signal D = Signal(intbv(0)[tir_width:])
     :param Q: tir_width bit wide Signal Q = Signal(intbv(0)[tir_width:])
     :param scan_in: Input signal for data scanned into TIR
+    :param tck: TAP TCK
     :param tap_interface: TAPInterface object containing:
         CaptureIR: Signal used to enable the capture of D
         ShiftIR: Signal used to shift the data out ScanOut from the TIR
@@ -43,7 +44,7 @@ def TIR(path, name, D, Q, scan_in, tap_interface, local_reset, scan_out, tir_wid
         tap_interface.UpdateIR,
         tap_interface.Select,
         master_reset,
-        tap_interface.ClockIR,
+        tck,
         scan_out,
         D,
         Q,
@@ -83,6 +84,7 @@ def TIR_tb(monitor=False):
     :return: A list of generators for this logic
     """
     width = 9
+    tck = Signal(bool(0))
     tap_interface = TAPInterface()
     si = Signal(bool(0))
     so = Signal(bool(0))
@@ -94,12 +96,12 @@ def TIR_tb(monitor=False):
     so_data = [Signal(bool(0)) for _ in range(width)]
     local_reset = Signal(bool(1))
     t = 0
-    tir_inst = TIR('TOP', 'TIR0', D, Q, si, tap_interface, local_reset, so, tir_width=9, monitor=monitor)
+    tir_inst = TIR('TOP', 'TIR0', D, Q, si, tck, tap_interface, local_reset, so, tir_width=9, monitor=monitor)
 
     @instance
     def clkgen():
         while True:
-            tap_interface.ClockIR.next = not tap_interface.ClockIR
+            tck.next = not tck
             yield delay(period // 2)
 
     @instance  # reset signal
