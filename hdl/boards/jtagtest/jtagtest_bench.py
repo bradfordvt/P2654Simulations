@@ -9,6 +9,8 @@ from time import sleep
 from hdl.boards.jtagtest.jtagtest import JTAGTest
 from hdl.ate.ate import ATE
 from hdl.hosts.jtaghost.JTAG_Ctrl_Master import SHIFT_DR, SHIFT_IR, RUN_TEST_IDLE
+from hdl.boards.common.BoardGPIOInterface import BoardGPIOInterface
+from hdl.boards.common.BoardJTAGInterface import BoardJTAGInterface
 
 
 def write_vector(ate_inst, addr, data):
@@ -235,8 +237,14 @@ def scan_dr(ate_inst, count, tdi_string):
 
 
 def jtagtest_bench():
+    gpio_if = BoardGPIOInterface()
+    jtag_if = BoardJTAGInterface()
     board_inst = JTAGTest()
+    board_inst.configure_jtag(jtag_if)
+    board_inst.configure_gpio(gpio_if)
     ate_inst = ATE(board_inst)
+    ate_inst.configure_jtag(jtag_if)
+    ate_inst.configure_gpio(gpio_if)
     ate_inst.start_simulation()
     sleep(1)
 
