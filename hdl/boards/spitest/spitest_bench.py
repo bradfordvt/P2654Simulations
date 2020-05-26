@@ -46,6 +46,9 @@ from hdl.boards.i2ctest.i2ctest import I2CTest
 from hdl.ate.ate import ATE
 from hdl.hosts.jtaghost.JTAG_Ctrl_Master import SHIFT_DR, SHIFT_IR, RUN_TEST_IDLE
 from hdl.boards.spitest.spitest import SPITest
+from hdl.boards.common.BoardGPIOInterface import BoardGPIOInterface
+from hdl.boards.common.BoardI2CInterface import BoardI2CInterface
+from hdl.boards.common.BoardSPIInterface import BoardSPIInterface
 
 
 def write_vector(ate_inst, addr, data):
@@ -586,8 +589,17 @@ def spi_read(ate_inst):
 
 
 def spitest_bench():
+    gpio_if = BoardGPIOInterface()
+    i2c_if = BoardI2CInterface()
+    spi_if = BoardSPIInterface()
     board_inst = SPITest()
+    board_inst.configure_gpio(gpio_if)
+    board_inst.configure_i2c(i2c_if)
+    board_inst.configure_spi(spi_if)
     ate_inst = ATE(board_inst)
+    ate_inst.configure_gpio(gpio_if)
+    ate_inst.configure_i2c(i2c_if)
+    ate_inst.configure_spi(spi_if)
     ate_inst.start_simulation()
     sleep(1)
 
