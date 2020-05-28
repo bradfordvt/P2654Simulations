@@ -170,7 +170,7 @@ def JTAGCtrlMaster(parent, name,
 
     # Signals for TDI/TDO
     shift_state = Signal(TypeShiftStates.idle)
-    int_bit_count = Signal(intbv(0)[control_interface.addr_width:])
+    int_bit_count = Signal(intbv(0)[16:])
     shift_tck = Signal(bool(1))
 
     # Signals for Ram
