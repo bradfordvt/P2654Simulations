@@ -87,6 +87,7 @@ public:
     byte_array ba_scan_dr(byte_array& tdi_vector, int count);
     std::string scan_ir(int count, std::string tdi_string);
     std::string scan_dr(int count, std::string tdi_string);
+    void runtest(int ticks);
 private:
     void __write_vector_segment(std::uint32_t adr, byte data);
     byte __read_vector_segment(std::uint32_t adr);
