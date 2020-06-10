@@ -322,6 +322,29 @@ class JTAGController:
             # print("tdo_string = ", tdo_string)
         return tdo_string
 
+    def runtest(self, ticks):
+        start = RUN_TEST_IDLE
+        end = RUN_TEST_IDLE
+        blocks = ticks // 1024
+        rem = ticks % 1024
+        for i in range(blocks):
+            self.__set_bit_count(1024)
+            self.__set_state_start(start)
+            self.__set_state_end(end)
+            self.__set_control_register(0x1)  # Start the scan
+            status = self.__get_status_register()
+            while status != 0:
+                status = self.__get_status_register()
+            self.__set_control_register(0x0)  # Stop the scan/Reset for next scan cycle trigger
+        self.__set_bit_count(rem)
+        self.__set_state_start(start)
+        self.__set_state_end(end)
+        self.__set_control_register(0x1)  # Start the scan
+        status = self.__get_status_register()
+        while status != 0:
+            status = self.__get_status_register()
+        self.__set_control_register(0x0)  # Stop the scan/Reset for next scan cycle trigger
+
 
 class I2CController:
     def __init__(self, ate_inst):

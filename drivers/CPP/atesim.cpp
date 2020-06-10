@@ -320,6 +320,35 @@ std::string JTAGController::scan_dr(int count, std::string tdi_string) {
     return tdo_string;
 }
 
+void JTAGController::runtest(int ticks) {
+    std::uint8_t start = JTAGStates::RUN_TEST_IDLE;
+    std::uint8_t end = JTAGStates::RUN_TEST_IDLE;
+    int blocks = ticks / 1024;
+    int rem = ticks % 1024;
+    for(int i = 0; i < blocks; i++) {
+        /* Now start the scan operation */
+        __set_bit_count(1024);
+        __set_state_start(start);
+        __set_state_end(end);
+        __set_control_register(0x1);  // Start the scan
+        std::uint8_t status = __get_status_register();
+        while(status != 0) {
+            status = __get_status_register();
+        }
+        __set_control_register(0x0);  // Stop the scan/Reset for next scan cycle trigger
+    }
+    /* Now start the scan operation */
+    __set_bit_count(1024);
+    __set_state_start(start);
+    __set_state_end(end);
+    __set_control_register(0x1);  // Start the scan
+    std::uint8_t status = __get_status_register();
+    while(status != 0) {
+        status = __get_status_register();
+    }
+    __set_control_register(0x0);  // Stop the scan/Reset for next scan cycle trigger
+}
+
 byte JTAGController::__hex(char ch) {
     if(ch >= 'A' && ch <= 'Z') {
         return (ch - 'A') + 10;
