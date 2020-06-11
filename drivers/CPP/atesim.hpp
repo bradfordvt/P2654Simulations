@@ -104,6 +104,59 @@ private:
     byte_array tdo_vector;
 };
 
+class JTAGController2 {
+public:
+    enum JTAGStates {
+        SI_EXIT2_DR=0,
+        SI_EXIT1_DR,
+        SI_SHIFT_DR,
+        SI_PAUSE_DR,
+        SI_SELECT_IR,
+        SI_UPDATE_DR,
+        SI_CAPTURE_DR,
+        SI_SELECT_DR,
+        SI_EXIT2_IR,
+        SI_EXIT1_IR,
+        SI_SHIFT_IR,
+        SI_PAUSE_IR,
+        SI_RUN_TEST_IDLE,
+        SI_UPDATE_IR,
+        SI_CAPTURE_IR,
+        SI_TEST_LOGIC_RESET
+    };
+
+    enum Commands {
+        NONE=0,
+        SCAN=1,
+        RESET=2,
+        STATE=3,
+        COMMAND_MAX=4
+    };
+
+    JTAGController(ATE& ate) : ate_inst(ate) { };
+    ~JTAGController() { };
+    byte_array ba_scan_ir(byte_array& tdi_vector, int count);
+    byte_array ba_scan_dr(byte_array& tdi_vector, int count);
+    std::string scan_ir(int count, std::string tdi_string);
+    std::string scan_dr(int count, std::string tdi_string);
+    void runtest(int ticks);
+private:
+    void __write_vector_segment(std::uint32_t adr, byte data);
+    byte __read_vector_segment(std::uint32_t adr);
+    void __set_chain_length(std::uint16_t count);
+    void __set_state_start(std::uint8_t start);
+    void __set_state_end(std::uint8_t end);
+    void __set_command(std::uint8_t command);
+    void __set_control_register(std::uint8_t value);
+    std::uint8_t __get_status_register();
+    byte_array __scan_vector(byte_array& tdi_vector, int count, std::uint8_t start, std::uint8_t end);
+    byte __hex(char ch);
+    const char* __hex_to_char(byte data);
+    ATE& ate_inst;
+    std::string tdo_string;
+    byte_array tdo_vector;
+};
+
 class I2CController {
 public:
     I2CController(ATE& ate) : ate_inst(ate) { };

@@ -8,6 +8,7 @@ from subprocess import Popen, PIPE
 import telnetlib
 from time import sleep
 from hdl.hosts.jtaghost.JTAG_Ctrl_Master import SHIFT_DR, SHIFT_IR, RUN_TEST_IDLE
+from hdl.hosts.jtaghost.tapsim import *
 
 
 simip = "127.0.0.1"
@@ -339,6 +340,201 @@ class JTAGController:
         self.__set_bit_count(rem)
         self.__set_state_start(start)
         self.__set_state_end(end)
+        self.__set_control_register(0x1)  # Start the scan
+        status = self.__get_status_register()
+        while status != 0:
+            status = self.__get_status_register()
+        self.__set_control_register(0x0)  # Stop the scan/Reset for next scan cycle trigger
+
+
+class JTAGController2:
+    def __init__(self, ate_inst):
+        self.ate_inst = ate_inst
+
+    def __write_vector_segment(self, addr, data):
+        assert (addr < 0x3000)
+        wb_addr = 0x00003000 + addr
+        ret = self.ate_inst.write(wb_addr, data & 0xFF)
+        if not ret:
+            raise AcknowledgeError("Write Error: " + self.ate_inst.get_last_response())
+
+    def __read_vector_segment(self, addr):
+        assert (addr < 0x3000)
+        wb_addr = 0x00003000 + addr
+        try:
+            if self.ate_inst.read(wb_addr):
+                return self.ate_inst.get_value()
+            else:
+                print(self.ate_inst.get_error())
+                return None
+        except ValueError as e:
+            raise AcknowledgeError(e.__str__() + " " + self.ate_inst.get_last_response())
+
+    def __set_chain_length(self, count):
+        wb_addr = 0x00003000 + 0x402
+        self.ate_inst.write(wb_addr, count & 0xFFFF)
+
+    def __set_state_start(self, state):
+        wb_addr = 0x00003000 + 0x400
+        self.ate_inst.write(wb_addr, state & 0xF)
+
+    def __set_state_end(self, state):
+        wb_addr = 0x00003000 + 0x401
+        self.ate_inst.write(wb_addr, state & 0xF)
+
+    def __set_control_register(self, value):
+        wb_addr = 0x00003000 + 0x403
+        self.ate_inst.write(wb_addr, value & 0x1)
+
+    def __get_status_register(self):
+        wb_addr = 0x00003000 + 0x404
+        if self.ate_inst.read(wb_addr) & 0x1:
+            return self.ate_inst.get_value()
+        else:
+            print(self.ate_inst.get_error())
+            return None
+
+    def __set_command(self, command):
+        wb_addr = 0x00003000 + 0x405
+        self.ate_inst.write(wb_addr, command & 0xF)
+
+    def __scan_vector(self, tdi_vector, count, start, end):
+        # Fill the JTAGCtrlMaster data buffer memory with tdi data
+        data_width = 8
+        addr_width = 10
+        num_full_words = int(count // data_width)
+        tdo_vector = bytearray((count + data_width - 1) // data_width)
+        remainder = count % data_width
+        addr = 0
+        for i in range(num_full_words):
+            data = tdi_vector[i]
+            self.__write_vector_segment(addr, data)
+            addr = addr + 1
+        # Now write out the remaining bits that may be a partial word in size, but a full word needs to be written
+        if remainder > 0:
+            data = tdi_vector[num_full_words]
+            self.__write_vector_segment(addr, data)
+        # Now start the scan operation
+        self.__set_chain_length(count)
+        self.__set_state_start(start)
+        self.__set_state_end(end)
+        self.__set_command(SCAN)
+        self.__set_control_register(0x1)  # Start the scan
+        status = self.__get_status_register()
+        while status != 0:
+            status = self.__get_status_register()
+        self.__set_control_register(0x0)  # Stop the scan/Reset for next scan cycle trigger
+        # Scan completed, now fetch the captured data
+        addr = 0
+        for i in range(num_full_words):
+            data = self.__read_vector_segment(addr)
+            tdo_vector[i] = int(data)
+            addr = addr + 1
+        # Now read out the remaining bits that may be a partial word in size, but a full word needs to be read
+        if remainder > 0:
+            data = self.__read_vector_segment(addr)
+            # print(">>tdo_vector = ", tdo_vector)
+            # print(">>num_full_words = ", num_full_words)
+            # print(">>data = ", data)
+            tdo_vector[num_full_words] = int(data)
+        return tdo_vector
+
+    def ba_scan_ir(self, tdi_vector, count):
+        """
+        Scan the vector to the TAP with the IR data and capture the response in tdo_vector
+        :param tdi_vector: Data to be shifted out as bytearray
+        :param count: number of bits to shift
+        :return: tdo_vector: Data to be captured as bytearray
+        """
+        start = SI_SHIFT_IR
+        end = SI_RUN_TEST_IDLE
+        return self.__scan_vector(tdi_vector, count, start, end)
+
+    def ba_scan_dr(self, tdi_vector, count):
+        """
+        Scan the vector to the TAP with the DR data and capture the response in tdo_vector
+        :param ate_inst:
+        :param tdi_vector: Data to be shifted out as bytearray
+        :param count: number of bits to shift
+        :return: tdo_vector: Data to be captured as bytearray
+        """
+        start = SI_SHIFT_DR
+        end = SI_RUN_TEST_IDLE
+        return self.__scan_vector(tdi_vector, count, start, end)
+
+    def scan_ir(self, count, tdi_string):
+        """
+
+        :param ate_inst:
+        :param count:
+        :param tdi_string:
+        :return: tdo_string
+        """
+        if len(tdi_string) % 2:
+            tdi_string = '0' + tdi_string
+        # print("tdi_string = ", tdi_string)
+        tdi_vector = bytearray.fromhex(tdi_string)
+        # print("tdi_vector = ", tdi_vector)
+        if len(tdi_vector) > 1:
+            tdi_vector.reverse()
+            # print("tdi_vector = ", tdi_vector)
+        tdo_vector = self.ba_scan_ir(tdi_vector, count)
+        # print("tdo_vector = ", tdo_vector)
+        if len(tdo_vector) > 1:
+            tdo_vector.reverse()
+        tdo_string = tdo_vector.hex().upper()
+        # print("tdo_string = ", tdo_string)
+        if len(tdo_string) * 4 > count:
+            tdo_string = tdo_string[1:]
+            # print("tdo_string = ", tdo_string)
+        return tdo_string
+
+    def scan_dr(self, count, tdi_string):
+        """
+
+        :param ate_inst:
+        :param count:
+        :param tdi_string:
+        :return: tdo_string
+        """
+        if len(tdi_string) % 2:
+            tdi_string = '0' + tdi_string
+        # print("tdi_string = ", tdi_string)
+        tdi_vector = bytearray.fromhex(tdi_string)
+        # print("tdi_vector = ", tdi_vector)
+        if len(tdi_vector) > 1:
+            tdi_vector.reverse()
+            # print("tdi_vector = ", tdi_vector)
+        tdo_vector = self.ba_scan_dr(tdi_vector, count)
+        # print("tdo_vector = ", tdo_vector)
+        if len(tdo_vector) > 1:
+            tdo_vector.reverse()
+        tdo_string = tdo_vector.hex().upper()
+        # print("tdo_string = ", tdo_string)
+        if len(tdo_string) * 4 > count:
+            tdo_string = tdo_string[1:]
+            # print("tdo_string = ", tdo_string)
+        return tdo_string
+
+    def runtest(self, ticks):
+        start = SI_RUN_TEST_IDLE
+        end = SI_RUN_TEST_IDLE
+        blocks = ticks // 1024
+        rem = ticks % 1024
+        for i in range(blocks):
+            self.__set_chain_length(1024)
+            self.__set_state_start(start)
+            self.__set_state_end(end)
+            self.__set_command(SCAN)
+            self.__set_control_register(0x1)  # Start the scan
+            status = self.__get_status_register()
+            while status != 0:
+                status = self.__get_status_register()
+            self.__set_control_register(0x0)  # Stop the scan/Reset for next scan cycle trigger
+        self.__set_chain_length(rem)
+        self.__set_state_start(start)
+        self.__set_state_end(end)
+        self.__set_command(SCAN)
         self.__set_control_register(0x1)  # Start the scan
         status = self.__get_status_register()
         while status != 0:
