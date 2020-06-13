@@ -44,7 +44,7 @@ def TDR(path, name, D, Q, scan_in, tck, tap_interface, local_reset, scan_out, se
         tap_interface.CaptureDR,
         tap_interface.ShiftDR,
         tap_interface.UpdateDR,
-        tap_interface.Select,
+        select,
         master_reset,
         tck,
         scan_out,
@@ -58,12 +58,8 @@ def TDR(path, name, D, Q, scan_in, tck, tap_interface, local_reset, scan_out, se
     def reset_process():
         master_reset.next = local_reset and tap_interface.Reset
 
-    @always_comb
-    def select_process():
-        master_select.next = tap_interface.Select and select
-
     if monitor == False:
-        return sr_inst, reset_process, select_process
+        return sr_inst, reset_process
     else:
         @instance
         def monitor_scan_in():
@@ -79,7 +75,7 @@ def TDR(path, name, D, Q, scan_in, tck, tap_interface, local_reset, scan_out, se
                 yield scan_out
                 print("\t\tTDR({:s}) scan_out:".format(path + name), scan_out)
 
-        return monitor_scan_in, monitor_scan_out, sr_inst, reset_process, select_process
+        return monitor_scan_in, monitor_scan_out, sr_inst, reset_process
 
 
 @block
