@@ -133,8 +133,8 @@ public:
         COMMAND_MAX=4
     };
 
-    JTAGController(ATE& ate) : ate_inst(ate) { };
-    ~JTAGController() { };
+    JTAGController2(ATE& ate) : ate_inst(ate) { };
+    ~JTAGController2() { };
     byte_array ba_scan_ir(byte_array& tdi_vector, int count);
     byte_array ba_scan_dr(byte_array& tdi_vector, int count);
     std::string scan_ir(int count, std::string tdi_string);

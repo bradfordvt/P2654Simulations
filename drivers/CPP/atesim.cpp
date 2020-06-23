@@ -472,7 +472,7 @@ void JTAGController2::__set_control_register(std::uint8_t value) {
 
 void JTAGController2::__set_command(std::uint8_t command) {
     std::uint32_t wb_addr = 0x00003000 + 0x405;
-    bool ret = ate_inst.write(wb_addr, value & 0x0000000F);
+    bool ret = ate_inst.write(wb_addr, command & 0x0000000F);
     if(ret == false) {
         throw AcknowledgeError(std::string("Write Error: ") + ate_inst.get_last_response());
     }
@@ -519,7 +519,7 @@ byte_array JTAGController2::__scan_vector(byte_array& tdi_vector, int count, std
     __set_chain_length(count);
     __set_state_start(start);
     __set_state_end(end);
-    __set_command(Controller::SCAN)
+    __set_command(Commands::SCAN);
     __set_control_register(0x1);  // Start the scan
     std::uint8_t status = __get_status_register();
     while(status != 0) {
@@ -626,8 +626,8 @@ std::string JTAGController2::scan_dr(int count, std::string tdi_string) {
 }
 
 void JTAGController2::runtest(int ticks) {
-    std::uint8_t start = JTAGStates::RUN_TEST_IDLE;
-    std::uint8_t end = JTAGStates::RUN_TEST_IDLE;
+    std::uint8_t start = JTAGStates::SI_RUN_TEST_IDLE;
+    std::uint8_t end = JTAGStates::SI_RUN_TEST_IDLE;
     int blocks = ticks / 1024;
     int rem = ticks % 1024;
     for(int i = 0; i < blocks; i++) {
@@ -635,7 +635,7 @@ void JTAGController2::runtest(int ticks) {
         __set_chain_length(1024);
         __set_state_start(start);
         __set_state_end(end);
-        __set_command(Command::SCAN)
+        __set_command(Commands::SCAN);
         __set_control_register(0x1);  // Start the scan
         std::uint8_t status = __get_status_register();
         while(status != 0) {
@@ -647,7 +647,7 @@ void JTAGController2::runtest(int ticks) {
     __set_chain_length(1024);
     __set_state_start(start);
     __set_state_end(end);
-    __set_command(Command::SCAN)
+    __set_command(Commands::SCAN);
     __set_control_register(0x1);  // Start the scan
     std::uint8_t status = __get_status_register();
     while(status != 0) {
