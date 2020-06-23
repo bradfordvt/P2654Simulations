@@ -61,6 +61,16 @@ public:
     }
 };
 
+class GPIOController {
+public:
+    GPIOController(ATE& ate) : ate_inst(ate) { };
+    ~GPIOController() { };
+    bool write(std::uint32_t val);
+    bool read( );
+    std::uint32_t get_value();
+    const char* get_error();
+};
+
 class JTAGController {
 public:
     enum JTAGStates {

@@ -35,29 +35,48 @@ def TIR(path, name, D, Q, scan_in, tck, tap_interface, local_reset, scan_out, ti
     """
     master_reset = Signal(bool(1))
 
-    sr_inst = ScanRegister(
-        path + '.' + name,
-        name + '_SR',
-        scan_in,
-        tap_interface.CaptureIR,
-        tap_interface.ShiftIR,
-        tap_interface.UpdateIR,
-        tap_interface.Select,
-        master_reset,
-        tck,
-        scan_out,
-        D,
-        Q,
-        width=tir_width,
-        monitor=monitor
-    )
+    isr = Signal(intbv(val=0, _nrbits=tir_width))
+
+    @always(tck.posedge)
+    def capture_ff():
+        if tap_interface.Select == bool(1) and tap_interface.CaptureIR == bool(1):
+            if tir_width == 1:
+                isr.next[0] = D
+            else:
+                for i in range(tir_width):
+                    isr.next[i] = D[i]
+        elif tap_interface.Select == bool(1) and tap_interface.ShiftIR == bool(1):
+            if tir_width == 1:
+                isr.next[0] = scan_in
+            else:
+                # for i in range(1, tir_width):
+                #     isr.next[i - 1] = isr[i]
+                # isr.next[tir_width - 1] = scan_in
+                isr.next = concat(scan_in, isr[tir_width:1])
+
+    @always(tap_interface.UpdateIR.posedge)
+    def update_ff():
+        if master_reset == bool(0):
+            for i in range(tir_width):
+                Q.next[i] = bool(0)
+        elif tap_interface.Select == bool(1):
+            if tir_width == 1:
+                Q.next[0] = isr[0]
+            else:
+                # for i in range(tir_width):
+                #     Q.next[i] = isr[i]
+                Q.next = isr
+
+    @always(tck.negedge)
+    def output():
+        scan_out.next = isr[0]
 
     @always_comb
     def reset_process():
         master_reset.next = local_reset and tap_interface.Reset
 
-    if monitor == False:
-        return sr_inst
+    if not monitor:
+        return capture_ff, update_ff, output, reset_process
     else:
         @instance
         def monitor_scan_in():
@@ -73,7 +92,65 @@ def TIR(path, name, D, Q, scan_in, tck, tap_interface, local_reset, scan_out, ti
                 yield scan_out
                 print("\t\tTIR({:s}) scan_out:".format(path + name), scan_out)
 
-        return monitor_scan_in, monitor_scan_out, sr_inst, reset_process
+        @instance
+        def monitor_isr():
+            print("\t\tTIR({:s}): isr".format(path + '.' + name), isr)
+            while 1:
+                yield isr
+                print("\t\tTIR({:s}): isr".format(path + '.' + name), isr)
+
+        @instance
+        def monitor_D():
+            print("\t\tTIR({:s}): di".format(path + '.' + name), D)
+            while 1:
+                yield D
+                print("\t\tTIR({:s}): di".format(path + '.' + name), D)
+
+        @instance
+        def monitor_Q():
+            print("\t\tTIR({:s}): do".format(path + '.' + name), Q)
+            while 1:
+                yield Q
+                print("\t\tTIR({:s}): do".format(path + '.' + name), Q)
+
+        @instance
+        def monitor_ce():
+            print("\t\tTIR({:s}): ce".format(path + '.' + name), tap_interface.CaptureIR)
+            while 1:
+                yield tap_interface.CaptureIR
+                print("\t\tTIR({:s}): ce".format(path + '.' + name), tap_interface.CaptureIR)
+
+        @instance
+        def monitor_se():
+            print("\t\tTIR({:s}): se".format(path + '.' + name), tap_interface.ShiftIR)
+            while 1:
+                yield tap_interface.ShiftIR
+                print("\t\tTIR({:s}): se".format(path + '.' + name), tap_interface.ShiftIR)
+
+        @instance
+        def monitor_ue():
+            print("\t\tTIR({:s}): ue".format(path + '.' + name), tap_interface.UpdateIR)
+            while 1:
+                yield tap_interface.UpdateIR
+                print("\t\tTIR({:s}): ue".format(path + '.' + name), tap_interface.UpdateIR)
+
+        @instance
+        def monitor_sel():
+            print("\t\tTIR({:s}): sel".format(path + '.' + name), tap_interface.Select)
+            while 1:
+                yield tap_interface.Select
+                print("\t\tTIR({:s}): sel".format(path + '.' + name), tap_interface.Select)
+
+        @instance
+        def monitor_clock():
+            print("\t\tTIR({:s}): clock".format(path + '.' + name), tck)
+            while 1:
+                yield tck
+                print("\t\tTIR({:s}): clock".format(path + '.' + name), tck)
+
+        return monitor_D, monitor_Q, monitor_isr, capture_ff, update_ff, output, reset_process, \
+               monitor_scan_in, monitor_scan_out, \
+               monitor_ce, monitor_se, monitor_ue, monitor_sel, monitor_clock
 
 
 @block
@@ -91,8 +168,8 @@ def TIR_tb(monitor=False):
     D = Signal(intbv('010100000')[width:])
     Q = Signal(intbv(0)[width:])
     si_data = [Signal(bool(0)) for _ in range(width)]
-    si_data[width - 5] = Signal(bool(1))
-    si_data[width - 7] = Signal(bool(1))
+    si_data[5] = Signal(bool(1))
+    si_data[7] = Signal(bool(1))
     so_data = [Signal(bool(0)) for _ in range(width)]
     local_reset = Signal(bool(1))
     t = 0
@@ -109,6 +186,10 @@ def TIR_tb(monitor=False):
         local_reset.next = 0
         yield delay(period)
         local_reset.next = 1
+
+    @always_comb
+    def clkir():
+        tap_interface.ClockIR.next = tap_interface.Select and tck
 
     # print simulation data to file
     file_data = open("TIR_tb.csv", 'w')  # file for saving data
@@ -138,6 +219,7 @@ def TIR_tb(monitor=False):
         # reset.next = bool(0)
         # yield delay(period)
         # reset.next = bool(1)
+        tap_interface.Select.next = True
         yield delay(period)
         yield tap_interface.ClockIR.negedge
         # Start the Capture transition operation
@@ -151,10 +233,10 @@ def TIR_tb(monitor=False):
         # Write Shift value
         # yield tap_interface.ClockIR.negedge
         for i in range(width):
-            si.next = si_data[width - 1 - i]
+            si.next = si_data[i]
             yield tap_interface.ClockIR.posedge
+            so_data[i].next = so
             yield tap_interface.ClockIR.negedge
-            so_data[width - 1 - i].next = so
         # Write Update value
         tap_interface.ShiftIR.next = L
         tap_interface.UpdateIR.next = H
@@ -163,19 +245,19 @@ def TIR_tb(monitor=False):
         yield tap_interface.ClockIR.negedge
         yield tap_interface.ClockIR.posedge
         for j in range(width):
-            if j == 3 or j == 1:
-                assert (so_data[width - 1 - j] == bool(1))
+            if j == 5 or j == 7:
+                assert (so_data[j] == bool(1))
             else:
-                assert (so_data[width - 1 - j] == bool(0))
+                assert (so_data[j] == bool(0))
         for j in range(width):
-            if j == 4 or j == 6:
-                assert (Q[width - 1 - j] == bool(1))
+            if j == 5 or j == 7:
+                assert (Q[j] == bool(1))
             else:
-                assert (Q[width - 1 - j] == bool(0))
+                assert (Q[j] == bool(0))
 
         raise StopSimulation()
 
-    return tir_inst, clkgen, stimulus, reset_signal, print_data
+    return tir_inst, clkgen, stimulus, reset_signal, print_data, clkir
 
 
 def convert():
@@ -190,7 +272,8 @@ def convert():
     D = Signal(intbv('000000000')[width:])
     Q = Signal(intbv(0)[width:])
     local_reset = Signal(bool(1))
-    tir_inst = TIR('TOP', 'TIR0', D, Q, si, tap_interface, local_reset, so, tir_width=9, monitor=False)
+    tck = Signal(bool(0))
+    tir_inst = TIR('TOP', 'TIR0', D, Q, si, tck, tap_interface, local_reset, so, tir_width=9, monitor=False)
 
     vhdl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vhdl')
     if not os.path.exists(vhdl_dir):

@@ -123,6 +123,22 @@ bool ATE::close() {
     return false;
 }
 
+bool GPIOController::write(std::uint32_t val) {
+    return ate_inst.write(0x00001800, val)
+}
+
+bool GPIOController::read() {
+    return ate_inst.read(0x00001800)
+}
+
+std::uint32_t GPIOController::get_value() {
+    return ate_inst.get_value()
+}
+
+const char* GPIOController::get_error() {
+    return ate_inst.get_error()
+}
+
 void JTAGController::__write_vector_segment(std::uint32_t adr, byte data) {
     std::uint32_t wb_addr = 0x00001000 + adr;
     bool ret = ate_inst.write(wb_addr, (std::uint32_t)data & 0x000000FF);

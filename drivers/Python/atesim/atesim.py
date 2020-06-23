@@ -159,6 +159,23 @@ class AcknowledgeError(Exception):
         super(AcknowledgeError, self).__init__(message)
 
 
+class GPIOController:
+    def __init__(self, ate_inst):
+        self.ate_inst = ate_inst
+
+    def write(self, val):
+        return self.ate_inst.write(0x00001800, val)
+
+    def read(self):
+        return self.ate_inst.read(0x00001800)
+
+    def get_value(self):
+        return self.ate_inst.get_value()
+
+    def get_error(self):
+        return self.ate_inst.get_error()
+
+
 class JTAGController:
     def __init__(self, ate_inst):
         self.ate_inst = ate_inst
