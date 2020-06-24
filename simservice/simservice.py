@@ -2,7 +2,7 @@
 
 """
 import os
-from platform import system, node
+from platform import system
 import sys
 
 
@@ -11,15 +11,11 @@ from telnetsrv.threaded import TelnetHandler
 from telnetsrv.telnetsrvlib import command
 
 import threading
-import string
 from hdl.ate.ate import ATE
-from hdl.hosts.jtaghost.JTAG_Ctrl_Master import SHIFT_DR, SHIFT_IR, RUN_TEST_IDLE
-from hdl.boards.spitest.spitest import SPITest
-from hdl.boards.i2ctest.i2ctest import I2CTest
-from hdl.boards.jtagtest.jtagtest import JTAGTest
-
-import queue
-
+# from hdl.boards.spitest.spitest import SPITest
+# from hdl.boards.i2ctest.i2ctest import I2CTest
+# from hdl.boards.jtagtest.jtagtest import JTAGTest
+from hdl.boards.common.BoardFactory import BoardFactory
 
 TELNET_IP_BINDING = ""  # all
 TELNET_PORT_BINDING = 5023
@@ -32,11 +28,11 @@ if not TELNET_IP_BINDING:
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-boards = {
-    "SPITest": SPITest(),
-    "I2CTest": I2CTest(),
-    "JTAGTest": JTAGTest()
-}
+# boards = {
+#     "SPITest": SPITest(),
+#     "I2CTest": I2CTest(),
+#     "JTAGTest": JTAGTest()
+# }
 
 
 class SimulatorHandler(TelnetHandler):
@@ -56,6 +52,7 @@ class SimulatorHandler(TelnetHandler):
         self.start_state = False
         self.board_inst = None
         self.ate_inst = None
+        self.board_factory = BoardFactory()
         TelnetHandler.__init__(self, request, client_address, server)
 
     def __mw(self, adr, data):
@@ -117,7 +114,8 @@ class SimulatorHandler(TelnetHandler):
         return resp
 
     def __get_board_inst(self, brd):
-        return boards[brd]
+        # return boards[brd]
+        return self.board_factory.make_board(brd)
 
     def setterm(self, term):
         """
