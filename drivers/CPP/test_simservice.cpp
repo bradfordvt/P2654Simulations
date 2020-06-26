@@ -390,12 +390,12 @@ TestSimService::test_simserviceATE002(void)
 void
 TestSimService::test_simserviceATE003(void)
 {
+    mATETestObj = new ATE("127.0.0.1", 5023);
+    sleep(0.05);
 	try {
         char resp[512];
         const char* rsp;
         char buffer[2048];
-        mATETestObj = new ATE("127.0.0.1", 5023);
-        sleep(0.05);
         const char* board = "SPITest";
         CPPUNIT_ASSERT(mATETestObj->connect(board));
 		sleep(0.05);
@@ -434,18 +434,22 @@ TestSimService::test_simserviceATE003(void)
 	} catch(TelnetClient::IOError e) {
 		printf("ERROR: %s\n", e.what());
 		CPPUNIT_ASSERT(0 != 0);
+	} catch( CPPUNIT_NS::Exception &e ) {
+	    mATETestObj->terminate();
+	    mATETestObj->close();
+	    throw(e);
 	}
 }
 
 void
 TestSimService::test_simserviceATE004(void)
 {
+    char resp[512];
+    const char* rsp;
+    char buffer[2048];
+    mATETestObj = new ATE("127.0.0.1", 5023);
+    sleep(0.05);
 	try {
-        char resp[512];
-        const char* rsp;
-        char buffer[2048];
-        mATETestObj = new ATE("127.0.0.1", 5023);
-        sleep(0.05);
         const char* board = "SPITest";
         CPPUNIT_ASSERT(mATETestObj->connect(board));
 		sleep(0.05);
@@ -467,18 +471,22 @@ TestSimService::test_simserviceATE004(void)
 	} catch(TelnetClient::IOError e) {
 		printf("ERROR: %s\n", e.what());
 		CPPUNIT_ASSERT(0 != 0);
+	} catch( CPPUNIT_NS::Exception &e ) {
+	    mATETestObj->terminate();
+	    mATETestObj->close();
+	    throw(e);
 	}
 }
 
 void
 TestSimService::test_simserviceATE005(void)
 {
+    char resp[512];
+    const char* rsp;
+    char buffer[2048];
+    mATETestObj = new ATE("127.0.0.1", 5023);
+    sleep(0.05);
 	try {
-        char resp[512];
-        const char* rsp;
-        char buffer[2048];
-        mATETestObj = new ATE("127.0.0.1", 5023);
-        sleep(0.05);
         const char* board = "SPITest";
         CPPUNIT_ASSERT(mATETestObj->connect(board));
 		sleep(0.05);
@@ -500,6 +508,10 @@ TestSimService::test_simserviceATE005(void)
 	} catch(TelnetClient::IOError e) {
 		printf("ERROR: %s\n", e.what());
 		CPPUNIT_ASSERT(0 != 0);
+	} catch( CPPUNIT_NS::Exception &e ) {
+	    mATETestObj->terminate();
+	    mATETestObj->close();
+	    throw(e);
 	}
 }
 
