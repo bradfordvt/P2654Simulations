@@ -187,6 +187,12 @@ class SimulatorHandler(TelnetHandler):
             self.board_inst = self.__get_board_inst(params[0])
             if self.board_inst is not None:
                 self.ate_inst = ATE(self.board_inst)
+                self.ate_inst.configure_gpio(self.board_factory.gpio_if)
+                self.ate_inst.configure_i2c(self.board_factory.i2c_if)
+                self.ate_inst.configure_spi(self.board_factory.spi_if)
+                self.ate_inst.configure_jtag(self.board_factory.jtag_if)
+                self.ate_inst.configure_jtag2(self.board_factory.jtag2_if)
+                self.ate_inst.configure_syscon(self.board_factory.clk_o, self.board_factory.rst_o)
                 self.ate_inst.start_simulation()
                 self.start_state = True
                 self.writeresponse("OK")
