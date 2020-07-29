@@ -14,6 +14,7 @@
 #include <string>
 #else
 #include <unistd.h>		// close() read() write()
+#define SOCKET_ERROR				 (-1)
 #endif
 #include <chrono>
 
