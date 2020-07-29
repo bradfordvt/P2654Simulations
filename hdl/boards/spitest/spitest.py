@@ -57,6 +57,8 @@ class SPITest(AbstractBoard):
             self.state3.next = self.o_gpio[3]
             self.state4.next = self.o_gpio[4]
             self.i_gpio.next = self.o_gpio
+            # JTAG loopback
+            self.tdo.next = self.tdi
             # Wire the LED controller clock to the WB clock
             self.clk.next = self.clk_o
 

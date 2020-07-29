@@ -49,6 +49,7 @@ from hdl.boards.spitest.spitest import SPITest
 from hdl.boards.common.BoardGPIOInterface import BoardGPIOInterface
 from hdl.boards.common.BoardI2CInterface import BoardI2CInterface
 from hdl.boards.common.BoardSPIInterface import BoardSPIInterface
+from hdl.boards.common.BoardJTAGInterface import BoardJTAGInterface
 
 
 def write_vector(ate_inst, addr, data):
@@ -592,67 +593,70 @@ def spitest_bench():
     gpio_if = BoardGPIOInterface()
     i2c_if = BoardI2CInterface()
     spi_if = BoardSPIInterface()
+    jtag_if = BoardJTAGInterface()
     board_inst = SPITest()
     board_inst.configure_gpio(gpio_if)
     board_inst.configure_i2c(i2c_if)
     board_inst.configure_spi(spi_if)
+    board_inst.configure_jtag(jtag_if)
     ate_inst = ATE(board_inst)
     ate_inst.configure_gpio(gpio_if)
     ate_inst.configure_i2c(i2c_if)
     ate_inst.configure_spi(spi_if)
+    ate_inst.configure_jtag(jtag_if)
     ate_inst.start_simulation()
     sleep(1)
 
-    # # GPIO Test
-    # assert(ate_inst.write(0x00001800, 0x00000000))
-    # assert(ate_inst.read(0x00001800))
-    # assert(ate_inst.get_value() == 0x00000000)
-    # assert(ate_inst.write(0x00001800, 0x00000015))
-    # assert(ate_inst.read(0x00001800))
-    # assert(ate_inst.get_value() == 0x00150015)
-    # assert(ate_inst.write(0x00001800, 0x0000000A))
-    # assert(ate_inst.read(0x00001800))
-    # assert(ate_inst.get_value() == 0x000A000A)
-    # assert(ate_inst.write(0x00001800, 0x00000000))
-    # assert(ate_inst.read(0x00001800))
-    # assert(ate_inst.get_value() == 0x00000000)
-    #
-    # # JTAG Test
-    # assert(ate_inst.write(0x00001800, 0x00000001))  # Turn on WHITE LED to indicate scan start
-    # tdo = scan_ir(ate_inst, 8, '55')
-    # # print("tdo = ", tdo)
-    # assert(tdo == '55')
-    # assert(ate_inst.write(0x00001800, 0x00000002))  # Turn on RED LED to indicate scan start
-    # tdo = scan_ir(ate_inst, 12, '0A55')
-    # assert(tdo == 'A55')
-    # assert(ate_inst.write(0x00001800, 0x00000004))  # Turn on GREEN LED to indicate scan start
-    # tdo = scan_ir(ate_inst, 12, '5AA')
-    # assert(tdo == '5AA')
-    # assert(ate_inst.write(0x00001800, 0x00000008))  # Turn on YELLOW LED to indicate scan start
-    # tdo = scan_dr(ate_inst, 8, '55')
-    # assert(tdo == '55')
-    # assert(ate_inst.write(0x00001800, 0x00000010))  # Turn on BLUE LED to indicate scan start
-    # tdo = scan_dr(ate_inst, 12, 'AAA')
-    # assert(tdo == 'AAA')
-    # assert(ate_inst.write(0x00001800, 0x00000011))  # Turn on BLUE & WHITE LEDs to indicate scan start
-    # tdo = scan_dr(ate_inst, 12, 'A55')
-    # assert(tdo == 'A55')
-    # assert(ate_inst.write(0x00001800, 0x00000012))  # Turn on BLUE & RED LEDs to indicate scan start
-    # tdo = scan_dr(ate_inst, 12, '5AA')
-    # assert(tdo == '5AA')
-    # assert(ate_inst.write(0x00001800, 0x00000014))  # Turn on BLUE & GREEN LEDs to indicate scan start
-    # tdo = scan_dr(ate_inst, 16 * 4, '0123456789ABCDEF')
-    # assert(tdo == '0123456789ABCDEF')
+    # GPIO Test
+    assert(ate_inst.write(0x00001800, 0x00000000))
+    assert(ate_inst.read(0x00001800))
+    assert(ate_inst.get_value() == 0x00000000)
+    assert(ate_inst.write(0x00001800, 0x00000015))
+    assert(ate_inst.read(0x00001800))
+    assert(ate_inst.get_value() == 0x00150015)
+    assert(ate_inst.write(0x00001800, 0x0000000A))
+    assert(ate_inst.read(0x00001800))
+    assert(ate_inst.get_value() == 0x000A000A)
+    assert(ate_inst.write(0x00001800, 0x00000000))
+    assert(ate_inst.read(0x00001800))
+    assert(ate_inst.get_value() == 0x00000000)
 
-    # # I2C Test set i2c master clock scale reg PRER = (48MHz / (5 * 400KHz) ) - 1
-    # print("Testing register read/write")
-    # i2c_write_reg(ate_inst, 0x3C, 0x01, 0xA5)
-    # assert(i2c_read_reg(ate_inst, 0x3C, 0x01) == 0xA5)
-    #
-    # i2c_multibyte_write(ate_inst, 0x3C, 0, 0x89abcdef)
-    # assert(i2c_multibyte_read(ate_inst, 0x3C, 0) == 0x89abcdef)
-    # assert(i2c_multibyte_read(ate_inst, 0x3C, 4) == 0x12345678)
-    #
+    # JTAG Test
+    assert(ate_inst.write(0x00001800, 0x00000001))  # Turn on WHITE LED to indicate scan start
+    tdo = scan_ir(ate_inst, 8, '55')
+    # print("tdo = ", tdo)
+    assert(tdo == '55')
+    assert(ate_inst.write(0x00001800, 0x00000002))  # Turn on RED LED to indicate scan start
+    tdo = scan_ir(ate_inst, 12, '0A55')
+    assert(tdo == 'A55')
+    assert(ate_inst.write(0x00001800, 0x00000004))  # Turn on GREEN LED to indicate scan start
+    tdo = scan_ir(ate_inst, 12, '5AA')
+    assert(tdo == '5AA')
+    assert(ate_inst.write(0x00001800, 0x00000008))  # Turn on YELLOW LED to indicate scan start
+    tdo = scan_dr(ate_inst, 8, '55')
+    assert(tdo == '55')
+    assert(ate_inst.write(0x00001800, 0x00000010))  # Turn on BLUE LED to indicate scan start
+    tdo = scan_dr(ate_inst, 12, 'AAA')
+    assert(tdo == 'AAA')
+    assert(ate_inst.write(0x00001800, 0x00000011))  # Turn on BLUE & WHITE LEDs to indicate scan start
+    tdo = scan_dr(ate_inst, 12, 'A55')
+    assert(tdo == 'A55')
+    assert(ate_inst.write(0x00001800, 0x00000012))  # Turn on BLUE & RED LEDs to indicate scan start
+    tdo = scan_dr(ate_inst, 12, '5AA')
+    assert(tdo == '5AA')
+    assert(ate_inst.write(0x00001800, 0x00000014))  # Turn on BLUE & GREEN LEDs to indicate scan start
+    tdo = scan_dr(ate_inst, 16 * 4, '0123456789ABCDEF')
+    assert(tdo == '0123456789ABCDEF')
+
+    # I2C Test set i2c master clock scale reg PRER = (48MHz / (5 * 400KHz) ) - 1
+    print("Testing register read/write")
+    i2c_write_reg(ate_inst, 0x3C, 0x01, 0xA5)
+    assert(i2c_read_reg(ate_inst, 0x3C, 0x01) == 0xA5)
+
+    i2c_multibyte_write(ate_inst, 0x3C, 0, 0x89abcdef)
+    assert(i2c_multibyte_read(ate_inst, 0x3C, 0) == 0x89abcdef)
+    assert(i2c_multibyte_read(ate_inst, 0x3C, 4) == 0x12345678)
+
     sleep(1)
     spi_write(ate_inst, 0x01345678)
     spi_write(ate_inst, 0x00BADEDA)

@@ -129,7 +129,9 @@ def wbjtag(i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, wb_addr, i_wb_data, o_wb
         #     o_wb_ack.next = True
         # else:
         #     o_wb_ack.next = False
-        o_wb_ack.next = i_wb_stb and i_wb_cyc
+        # o_wb_ack.next = i_wb_stb and i_wb_cyc
+        if bit_count_register_cycle or bram_cycle or start_state_register_cycle or end_state_register_cycle or control_register_cycle or status_register_cycle:
+            o_wb_ack.next = i_wb_stb and i_wb_cyc
 
     @always(i_clk.posedge)
     def strobe0():

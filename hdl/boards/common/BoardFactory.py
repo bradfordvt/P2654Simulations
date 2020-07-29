@@ -24,6 +24,27 @@ class BoardFactory:
         self.jtag_if = BoardJTAGInterface()
         self.jtag2_if = BoardJTAGInterface()
 
+    def get_gpio_if(self):
+        return self.gpio_if
+
+    def get_i2c_if(self):
+        return self.i2c_if
+
+    def get_spi_if(self):
+        return self.spi_if
+
+    def get_jtag_if(self):
+        return self.jtag_if
+
+    def get_jtag2_if(self):
+        return self.jtag2_if
+
+    def get_clk_o(self):
+        return self.clk_o
+
+    def get_rst_o(self):
+        return self.rst_o
+
     def make_board(self, board_name):
         board = None
         if board_name == "GPIOTest":
@@ -38,6 +59,7 @@ class BoardFactory:
             board.configure_gpio(self.gpio_if)
             board.configure_i2c(self.i2c_if)
             board.configure_spi(self.spi_if)
+            board.configure_jtag(self.jtag_if)
         elif board_name == "JTAGTest":
             board = JTAGTest()
             board.configure_gpio(self.gpio_if)

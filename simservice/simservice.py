@@ -63,7 +63,7 @@ class SimulatorHandler(TelnetHandler):
 
     def __mr(self, adr):
         if self.ate_inst.read(adr):
-            return "{:8X}".format(self.ate_inst.get_value())
+            return "0x{0:0{1}X}".format(self.ate_inst.get_value(), 8)
         else:
             return self.ate_inst.get_error()
 
@@ -71,7 +71,7 @@ class SimulatorHandler(TelnetHandler):
         if self.ate_inst.read(adr):
             value = self.ate_inst.get_value()
             if self.ate_inst.write(adr, data):
-                return "{:8X}".format(value)
+                return "0x{0:0{1}X}".format(value, 8)
             else:
                 return self.ate_inst.get_error()
         else:
@@ -96,9 +96,9 @@ class SimulatorHandler(TelnetHandler):
                 return self.ate_inst.get_error()
             else:
                 if len(resp):
-                    resp = resp + " " + "0x{:8X}".format(self.ate_inst.get_value())
+                    resp = resp + " " + "0x{0:0{1}X}".format(self.ate_inst.get_value(), 8)
                 else:
-                    resp = "0x{:8X}".format(self.ate_inst.get_value())
+                    resp = "0x{0:0{1}X}".format(self.ate_inst.get_value(), 8)
         return resp
 
     def __mmri(self, adr, cnt):
@@ -108,9 +108,9 @@ class SimulatorHandler(TelnetHandler):
                 return self.ate_inst.get_error()
             else:
                 if len(resp):
-                    resp = resp + " " + "0x{:8X}".format(self.ate_inst.get_value())
+                    resp = resp + " " + "0x{0:0{1}X}".format(self.ate_inst.get_value(), 8)
                 else:
-                    resp = "0x{:8X}".format(self.ate_inst.get_value())
+                    resp = "0x{0:0{1}X}".format(self.ate_inst.get_value(), 8)
         return resp
 
     def __get_board_inst(self, brd):
@@ -187,6 +187,11 @@ class SimulatorHandler(TelnetHandler):
             self.board_inst = self.__get_board_inst(params[0])
             if self.board_inst is not None:
                 self.ate_inst = ATE(self.board_inst)
+                self.ate_inst.configure_gpio(self.board_factory.get_gpio_if())
+                self.ate_inst.configure_i2c(self.board_factory.get_i2c_if())
+                self.ate_inst.configure_spi(self.board_factory.get_spi_if())
+                self.ate_inst.configure_jtag(self.board_factory.get_jtag_if())
+                self.ate_inst.configure_jtag2(self.board_factory.get_jtag2_if())
                 self.ate_inst.start_simulation()
                 self.start_state = True
                 self.writeresponse("OK")
