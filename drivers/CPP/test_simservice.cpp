@@ -12,7 +12,15 @@
 #include <cppunit/BriefTestProgressListener.h>
 #include <cppunit/CompilerOutputter.h>
 #include <cppunit/XmlOutputter.h>
-#include <netinet/in.h>
+// #include <netinet/in.h>
+
+#ifdef __MINGW32__
+#define sleep(seconds) Sleep((seconds)*1000)
+#elif _MSC_VER >= 1900
+#define sleep(seconds) Sleep((seconds)*1000)
+#include "pch.h"
+#endif
+
 
 #include "atesim.hpp"
 
@@ -75,13 +83,17 @@ TestSimService::test_simservicetelnetlib001(void)
         char resp[512];
         const char* rsp;
         char buffer[2048];
-        mTCTestObj = new TelnetClient("127.0.0.1", 5023);
-        sleep(1);
+        mTCTestObj = new TelnetClient();
+        mTCTestObj->set_debug_level(1);
+        mTCTestObj->open(host, port);
+		sleep(1);
+		rsp = mTCTestObj->read_until("P2654> ", 60);
+		printf("%s", rsp);
         printf("Before EXIT()\n");
-        fflush(stdout);
-		mTCTestObj->write("EXIT\r\n");
-		sleep(0.1);
-		rsp = mTCTestObj->read_until("Goodbye");
+        fflush(stderr);
+		mTCTestObj->write("EXIT\n", 5);
+		sleep(5);
+		rsp = mTCTestObj->read_until("Goodbye", 60);
 		printf("%s\n", rsp);
 		mTCTestObj->close();
 		delete mTCTestObj;
@@ -100,25 +112,30 @@ TestSimService::test_simservicetelnetlib002(void)
         char resp[512];
         const char* rsp;
         char buffer[2048];
-        mTCTestObj = new TelnetClient("127.0.0.1", 5023);
+        mTCTestObj = new TelnetClient();
+        mTCTestObj->set_debug_level(1);
+        mTCTestObj->open(host, port);
+		sleep(1);
+		rsp = mTCTestObj->read_until("P2654> ", 60);
+		printf("%s", rsp);
         sleep(1);
         printf("Before STARTSIM()\n");
-        fflush(stdout);
-        mTCTestObj->write("STARTSIM SPITest\r\n");
-        sleep(1);
-		rsp = mTCTestObj->read_until("OK\r\n");
+        fflush(stderr);
+        mTCTestObj->write("STARTSIM SPITest\n");
+        sleep(8);
+		rsp = mTCTestObj->read_until("OK\r\n", 60);
 		printf("%s", rsp);
         printf("Before STOPSIM()\n");
-        fflush(stdout);
-		mTCTestObj->write("STOPSIM\r\n");
-		sleep(0.1);
-		rsp = mTCTestObj->read_until("OK\r\n");
+        fflush(stderr);
+		mTCTestObj->write("STOPSIM\n");
+		sleep(2);
+		rsp = mTCTestObj->read_until("OK\r\n", 60);
 		printf("%s\n", rsp);
         printf("Before EXIT()\n");
-        fflush(stdout);
-		mTCTestObj->write("EXIT\r\n");
-		sleep(0.1);
-		rsp = mTCTestObj->read_until("Goodbye");
+        fflush(stderr);
+		mTCTestObj->write("EXIT\n");
+		sleep(5);
+		rsp = mTCTestObj->read_until("Goodbye", 60);
 		printf("%s\n", rsp);
 		mTCTestObj->close();
 		delete mTCTestObj;
@@ -137,40 +154,32 @@ TestSimService::test_simservicetelnetlib003(void)
         char resp[512];
         const char* rsp;
         char buffer[2048];
-        mTCTestObj = new TelnetClient("127.0.0.1", 5023);
-        /*
-        sleep(0.05);
-        printf("Before EXIT()\n");
-        fflush(stdout);
-		mTCTestObj->write("EXIT\r\n");
-		sleep(0.05);
-		rsp = mTCTestObj->read_until("Goodbye", 10);
-		printf("%s\n", rsp);
-		mTCTestObj->close();
-		sleep(1);
-		mTCTestObj->open(host, port);
-		sleep(1);
-        */
-        printf("Before STARTSIM()\n");
-        fflush(stdout);
-        mTCTestObj->write("STARTSIM SPITest\r\n");
+        mTCTestObj = new TelnetClient();
+        mTCTestObj->set_debug_level(1);
+        mTCTestObj->open(host, port);
+		sleep(8);
+		rsp = mTCTestObj->read_until("P2654> ", 60);
+		printf("%s", rsp);
         sleep(1);
-		rsp = mTCTestObj->read_until("OK\r\n", 10);
+        printf("Before STARTSIM()\n");
+        fflush(stderr);
+        mTCTestObj->write("STARTSIM SPITest\n");
+        sleep(8);
+		rsp = mTCTestObj->read_until("OK\r\n", 60);
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
         printf("Before STOPSIM()\n");
-        fflush(stdout);
-        sleep(0.05);
-		mTCTestObj->write("STOPSIM\r\n");
-		sleep(0.05);
-		rsp = mTCTestObj->read_until("OK\r\n", 10);
+        fflush(stderr);
+		mTCTestObj->write("STOPSIM\n");
+		sleep(2);
+		rsp = mTCTestObj->read_until("OK\r\n", 60);
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
         printf("Before EXIT()\n");
-        fflush(stdout);
-		mTCTestObj->write("EXIT\r\n");
-		sleep(0.05);
-		rsp = mTCTestObj->read_until("Goodbye", 10);
+        fflush(stderr);
+		mTCTestObj->write("EXIT\n");
+		sleep(5);
+		rsp = mTCTestObj->read_until("Goodbye", 60);
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
 		mTCTestObj->close();
@@ -190,40 +199,32 @@ TestSimService::test_simservicetelnetlib004(void)
         char resp[512];
         const char* rsp;
         char buffer[2048];
-        mTCTestObj = new TelnetClient("127.0.0.1", 5023);
-        /*
-        sleep(0.05);
-        printf("Before EXIT()\n");
-        fflush(stdout);
-		mTCTestObj->write("EXIT\r\n");
-		sleep(0.05);
-		rsp = mTCTestObj->read_until("Goodbye", 10);
-		printf("%s\n", rsp);
-		mTCTestObj->close();
-		sleep(1);
-		mTCTestObj->open(host, port);
-		sleep(0.05);
-		*/
-        printf("Before STARTSIM()\n");
-        fflush(stdout);
-        mTCTestObj->write("STARTSIM SPITest\r\n");
+        mTCTestObj = new TelnetClient();
+        mTCTestObj->set_debug_level(1);
+        mTCTestObj->open(host, port);
+		sleep(8);
+		rsp = mTCTestObj->read_until("P2654> ", 60);
+		printf("%s", rsp);
         sleep(1);
-		rsp = mTCTestObj->read_until("OK\r\n", 10);
+        printf("Before STARTSIM()\n");
+        fflush(stderr);
+        mTCTestObj->write("STARTSIM SPITest\n");
+        sleep(8);
+		rsp = mTCTestObj->read_until("OK\r\n", 60);
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
         printf("Before STOPSIM()\n");
-        fflush(stdout);
-        sleep(0.05);
-		mTCTestObj->write("STOPSIM\r\n");
-		sleep(0.05);
-		rsp = mTCTestObj->read_until("OK\r\n", 10);
+        fflush(stderr);
+		mTCTestObj->write("STOPSIM\n");
+		sleep(2);
+		rsp = mTCTestObj->read_until("OK\r\n", 60);
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
         printf("Before EXIT()\n");
-        fflush(stdout);
-		mTCTestObj->write("EXIT\r\n");
-		sleep(0.05);
-		rsp = mTCTestObj->read_until("Goodbye", 10);
+        fflush(stderr);
+		mTCTestObj->write("EXIT\n");
+		sleep(5);
+		rsp = mTCTestObj->read_until("Goodbye", 60);
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
 		mTCTestObj->close();
@@ -243,40 +244,32 @@ TestSimService::test_simservicetelnetlib005(void)
         char resp[512];
         const char* rsp;
         char buffer[2048];
-        mTCTestObj = new TelnetClient("127.0.0.1", 5023);
-        /*
-        sleep(0.05);
-        printf("Before EXIT()\n");
-        fflush(stdout);
-		mTCTestObj->write("EXIT\r\n");
-		sleep(0.05);
-		rsp = mTCTestObj->read_until("Goodbye", 10);
-		printf("%s\n", rsp);
-		mTCTestObj->close();
-		sleep(1);
-		mTCTestObj->open(host, port);
-		sleep(0.05);
-        */
-        printf("Before STARTSIM()\n");
-        fflush(stdout);
-        mTCTestObj->write("STARTSIM SPITest\r\n");
+        mTCTestObj = new TelnetClient();
+        mTCTestObj->set_debug_level(1);
+        mTCTestObj->open(host, port);
+		sleep(8);
+		rsp = mTCTestObj->read_until("P2654> ", 60);
+		printf("%s", rsp);
         sleep(1);
-		rsp = mTCTestObj->read_until("OK\r\n", 10);
+        printf("Before STARTSIM()\n");
+        fflush(stderr);
+        mTCTestObj->write("STARTSIM SPITest\n");
+        sleep(8);
+		rsp = mTCTestObj->read_until("OK\r\n", 60);
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
         printf("Before STOPSIM()\n");
-        fflush(stdout);
-        sleep(0.05);
-		mTCTestObj->write("STOPSIM\r\n");
-		sleep(0.05);
-		rsp = mTCTestObj->read_until("OK\r\n", 10);
+        fflush(stderr);
+		mTCTestObj->write("STOPSIM\n");
+		sleep(2);
+		rsp = mTCTestObj->read_until("OK\r\n", 60);
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
         printf("Before EXIT()\n");
-        fflush(stdout);
-		mTCTestObj->write("EXIT\r\n");
-		sleep(0.05);
-		rsp = mTCTestObj->read_until("Goodbye", 10);
+        fflush(stderr);
+		mTCTestObj->write("EXIT\n");
+		sleep(5);
+		rsp = mTCTestObj->read_until("Goodbye", 60);
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
 		mTCTestObj->close();
@@ -297,27 +290,25 @@ TestSimService::test_simservicetelnetclient001(void)
         const char* rsp;
         char buffer[2048];
         mATETCTestObj = new ATETelnetClient();
-        sleep(0.05);
-		mATETCTestObj->connect(host, port);
-		sleep(0.05);
+        mATETCTestObj->connect(host, port);
         printf("Before STARTSIM()\n");
-        fflush(stdout);
-        mATETCTestObj->write("STARTSIM SPITest\r\n");
-        sleep(1);
+        fflush(stderr);
+        mATETCTestObj->write("STARTSIM SPITest\n");
+        sleep(8);
 		rsp = mATETCTestObj->read_until("OK\r\n");
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
         printf("Before STOPSIM()\n");
-        fflush(stdout);
-        mATETCTestObj->write("STOPSIM\r\n");
-		sleep(0.05);
+        fflush(stderr);
+        mATETCTestObj->write("STOPSIM\n");
+		sleep(2);
 		rsp = mATETCTestObj->read_until("OK\r\n");
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
         printf("Before EXIT()\n");
-        fflush(stdout);
-        mATETCTestObj->write("EXIT\r\n");
-		sleep(0.05);
+        fflush(stderr);
+        mATETCTestObj->write("EXIT\n");
+		sleep(5);
 		rsp = mATETCTestObj->read_until("Goodbye");
 		printf("%s\n", rsp);
 		CPPUNIT_ASSERT(strlen(rsp) > 0);
@@ -337,12 +328,10 @@ TestSimService::test_simserviceATE001(void)
         const char* rsp;
         char buffer[2048];
         mATETestObj = new ATE("127.0.0.1", 5023);
-        sleep(0.05);
+        sleep(1);
         const char* board = "SPITest";
         CPPUNIT_ASSERT(mATETestObj->connect(board));
-		sleep(0.05);
         CPPUNIT_ASSERT(mATETestObj->terminate());
-		sleep(0.05);
 		mATETestObj->close();
 		delete mATETestObj;
 	} catch(TelnetClient::IOError e) {
@@ -359,10 +348,9 @@ TestSimService::test_simserviceATE002(void)
         const char* rsp;
         char buffer[2048];
         mATETestObj = new ATE("127.0.0.1", 5023);
-        sleep(0.05);
+        sleep(1);
         const char* board = "SPITest";
         CPPUNIT_ASSERT(mATETestObj->connect(board));
-		sleep(0.05);
 		// GPIO Test
 		CPPUNIT_ASSERT(mATETestObj->write(0x00001800, 0x00000000));
 		CPPUNIT_ASSERT(mATETestObj->read(0x00001800));
@@ -378,7 +366,6 @@ TestSimService::test_simserviceATE002(void)
 		CPPUNIT_ASSERT(mATETestObj->get_value() == 0x00000000);
 		sleep(0.05);
         CPPUNIT_ASSERT(mATETestObj->terminate());
-		sleep(0.05);
 		mATETestObj->close();
 		delete mATETestObj;
 	} catch(TelnetClient::IOError e) {
@@ -390,15 +377,14 @@ TestSimService::test_simserviceATE002(void)
 void
 TestSimService::test_simserviceATE003(void)
 {
-    mATETestObj = new ATE("127.0.0.1", 5023);
-    sleep(0.05);
 	try {
         char resp[512];
         const char* rsp;
         char buffer[2048];
+        mATETestObj = new ATE("127.0.0.1", 5023);
+        sleep(1);
         const char* board = "SPITest";
         CPPUNIT_ASSERT(mATETestObj->connect(board));
-		sleep(0.05);
 		mJTAGControllerTestObj = new JTAGController(*mATETestObj);
 		// JTAG Test
 		CPPUNIT_ASSERT(mATETestObj->write(0x00001800, 0x00000001));  // Turn on WHITE LED to indicate scan start
@@ -427,32 +413,26 @@ TestSimService::test_simserviceATE003(void)
 		CPPUNIT_ASSERT(tdo == "0123456789ABCDEF");
 		sleep(0.05);
         CPPUNIT_ASSERT(mATETestObj->terminate());
-		sleep(0.05);
 		mATETestObj->close();
 		delete mJTAGControllerTestObj;
 		delete mATETestObj;
 	} catch(TelnetClient::IOError e) {
 		printf("ERROR: %s\n", e.what());
 		CPPUNIT_ASSERT(0 != 0);
-	} catch( CPPUNIT_NS::Exception &e ) {
-	    mATETestObj->terminate();
-	    mATETestObj->close();
-	    throw(e);
 	}
 }
 
 void
 TestSimService::test_simserviceATE004(void)
 {
-    char resp[512];
-    const char* rsp;
-    char buffer[2048];
-    mATETestObj = new ATE("127.0.0.1", 5023);
-    sleep(0.05);
 	try {
+        char resp[512];
+        const char* rsp;
+        char buffer[2048];
+        mATETestObj = new ATE("127.0.0.1", 5023);
+        sleep(0.05);
         const char* board = "SPITest";
         CPPUNIT_ASSERT(mATETestObj->connect(board));
-		sleep(0.05);
 		mI2CControllerTestObj = new I2CController(*mATETestObj);
 		// I2C Test
 		// I2C Test set i2c master clock scale reg PRER = (48MHz / (5 * 400KHz) ) - 1
@@ -464,32 +444,26 @@ TestSimService::test_simserviceATE004(void)
 		CPPUNIT_ASSERT(mI2CControllerTestObj->i2c_multibyte_read(0x3C, 4) == 0x12345678);
 		sleep(0.05);
         CPPUNIT_ASSERT(mATETestObj->terminate());
-		sleep(0.05);
 		mATETestObj->close();
 		delete mI2CControllerTestObj;
 		delete mATETestObj;
 	} catch(TelnetClient::IOError e) {
 		printf("ERROR: %s\n", e.what());
 		CPPUNIT_ASSERT(0 != 0);
-	} catch( CPPUNIT_NS::Exception &e ) {
-	    mATETestObj->terminate();
-	    mATETestObj->close();
-	    throw(e);
 	}
 }
 
 void
 TestSimService::test_simserviceATE005(void)
 {
-    char resp[512];
-    const char* rsp;
-    char buffer[2048];
-    mATETestObj = new ATE("127.0.0.1", 5023);
-    sleep(0.05);
 	try {
+        char resp[512];
+        const char* rsp;
+        char buffer[2048];
+        mATETestObj = new ATE("127.0.0.1", 5023);
+        sleep(1);
         const char* board = "SPITest";
         CPPUNIT_ASSERT(mATETestObj->connect(board));
-		sleep(0.05);
 		mSPIControllerTestObj = new SPIController(*mATETestObj);
 		// SPI Test
 		mSPIControllerTestObj->spi_write(0x01345678);
@@ -501,17 +475,12 @@ TestSimService::test_simserviceATE005(void)
 		CPPUNIT_ASSERT(mSPIControllerTestObj->spi_read() == 0x02BEEFED);
 		sleep(0.05);
         CPPUNIT_ASSERT(mATETestObj->terminate());
-		sleep(0.05);
 		mATETestObj->close();
 		delete mSPIControllerTestObj;
 		delete mATETestObj;
 	} catch(TelnetClient::IOError e) {
 		printf("ERROR: %s\n", e.what());
 		CPPUNIT_ASSERT(0 != 0);
-	} catch( CPPUNIT_NS::Exception &e ) {
-	    mATETestObj->terminate();
-	    mATETestObj->close();
-	    throw(e);
 	}
 }
 

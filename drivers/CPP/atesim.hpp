@@ -11,11 +11,11 @@ using namespace telnetclient;
 
 class ATETelnetClient {
 public:
-    ATETelnetClient(): timeout(60), ip("127.0.0.1"), port(5023), tn_inst() { };
+    ATETelnetClient(): timeout(60), ip("127.0.0.1"), port(5023), tn_inst() { tn_inst.set_debug_level(1); };
     ~ATETelnetClient() { };
     void connect(const char* ip, int port);
-    const char* read_until(const char* expect) { return tn_inst.read_until(expect, 30); };
-    const char* read_until(std::string expect) { return tn_inst.read_until(expect.c_str(), 30); };
+    const char* read_until(const char* expect) { return tn_inst.read_until(expect, 60); };
+    const char* read_until(std::string expect) { return tn_inst.read_until(expect.c_str(), 60); };
     const char* read_all() { return tn_inst.read_all(); };
     const char* read_some() { return tn_inst.read_some(); };
     void write(const char* s) { tn_inst.write(s); };

@@ -21,9 +21,15 @@
 #include <cppunit/BriefTestProgressListener.h>
 #include <cppunit/CompilerOutputter.h>
 #include <cppunit/XmlOutputter.h>
-#include <netinet/in.h>
+// #include <netinet/in.h>
 #include <time.h>
 
+#ifdef __MINGW32__
+#define sleep(seconds) Sleep((seconds)*1000)
+#elif _MSC_VER >= 1900
+#define sleep(seconds) Sleep((seconds)*1000)
+#include "pch.h"
+#endif
 
 using namespace CppUnit;
 using namespace std;
@@ -35,8 +41,8 @@ namespace telnetclient {
 class TestTelnetClient : public CppUnit::TestFixture
 {
     CPPUNIT_TEST_SUITE(TestTelnetClient);
-    // CPPUNIT_TEST(test_tc001);
-    // CPPUNIT_TEST(test_tc002);
+    CPPUNIT_TEST(test_tc001);
+    CPPUNIT_TEST(test_tc002);
     CPPUNIT_TEST(test_tc003);
     CPPUNIT_TEST_SUITE_END();
 
@@ -63,9 +69,15 @@ TestTelnetClient::test_tc001(void)
 		const char* host = "127.0.0.1";
 		int port = 5023;
 		char resp[512];
+		mTCTestObj->set_debug_level(1);
 		mTCTestObj->open(host, port);
+		sleep(1);
 		char buffer[2048];
-		const char *rsp = mTCTestObj->read_all();
+		const char *rsp = mTCTestObj->read_some();
+		printf("%s", rsp);
+		mTCTestObj->write("EXIT\n");
+		sleep(5);
+		rsp = mTCTestObj->read_until("Goodbye");
 		printf("%s", rsp);
 		mTCTestObj->close();
 	} catch(TelnetClient::IOError e) {
@@ -81,13 +93,17 @@ TestTelnetClient::test_tc002(void)
 		const char* host = "127.0.0.1";
 		int port = 5023;
 		char resp[512];
+		mTCTestObj->set_debug_level(1);
 		mTCTestObj->open(host, port);
+		sleep(11);
 		char buffer[2048];
 		const char *rsp = mTCTestObj->read_some();
 		printf("%s", rsp);
-		mTCTestObj->write("EXIT\r\n");
+		mTCTestObj->write("EXIT\n");
+		sleep(5);
 		rsp = mTCTestObj->read_until("Goodbye");
 		printf("%s", rsp);
+		sleep(5);
 		mTCTestObj->close();
 	} catch(TelnetClient::IOError e) {
 		printf("ERROR: %s", e.what());
@@ -102,21 +118,22 @@ TestTelnetClient::test_tc003(void)
 		const char* host = "127.0.0.1";
 		int port = 5023;
 		char resp[512];
+		// mTCTestObj->set_debug_level(1);
 		mTCTestObj->open(host, port);
 		char buffer[2048];
 		sleep(1);
-		const char *rsp = mTCTestObj->read_until("P2654> ");
+		const char *rsp = mTCTestObj->read_until("P2654> ", 60);
 		printf("%s", rsp);
 		mTCTestObj->write("STARTSIM SPITest\n");
-		sleep(0.1);
+		sleep(11);
 		rsp = mTCTestObj->read_until("OK\r\n");
 		printf("%s", rsp);
 		mTCTestObj->write("STOPSIM\n");
-		sleep(0.1);
+		sleep(2);
 		rsp = mTCTestObj->read_until("OK\r\n");
 		printf("%s", rsp);
-		mTCTestObj->write("EXIT\r\n");
-		sleep(0.1);
+		mTCTestObj->write("EXIT\n");
+		sleep(5);
 		rsp = mTCTestObj->read_until("Goodbye");
 		printf("%s", rsp);
 		mTCTestObj->close();

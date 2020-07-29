@@ -3,6 +3,13 @@
 #include<algorithm>
 #include <inttypes.h>
 
+#ifdef __MINGW32__
+#define sleep(seconds) Sleep((seconds)*1000)
+#elif _MSC_VER >= 1900
+#define sleep(seconds) Sleep((seconds)*1000)
+#include "pch.h"
+#endif
+
 void ATETelnetClient::connect(const char* ip, int port) {
 	sleep(1);
     try {
@@ -30,12 +37,14 @@ bool ATE::connect(const char* board) {
     tn_inst.connect(ip.c_str(), port);
     /* Send command to start up the simulation of the prescribed board */
     char buffer[50];
-    sleep(0.5);
-    sprintf(buffer, "STARTSIM %s\r\n", board);
-    tn_inst.write(buffer);
+    // sleep(0.5);
     sleep(1);
+    sprintf(buffer, "STARTSIM %s\n", board);
+    tn_inst.write(buffer);
+    sleep(8);
     const char* rsp;
     rsp = tn_inst.read_until("OK\r\n");
+    // rsp = tn_inst.read_until("P2654> ");
     int rlen = strlen(rsp);
     if(rlen > 0) {
         strncpy(resp, rsp, std::min(rlen, 511));
@@ -48,9 +57,9 @@ bool ATE::connect(const char* board) {
 
 bool ATE::write(std::uint32_t adr, std::uint32_t data) {
     char buffer[50];
-    sprintf(buffer, "MW 0x%08" PRIx32 " 0x%08" PRIx32 "\r\n", adr, data);
+    sprintf(buffer, "MW 0x%08x 0x%08x\n", adr, data);
     tn_inst.write(buffer);
-    sleep(0.005);
+    sleep(5);
     const char* rsp;
     rsp = tn_inst.read_until("OK\r\n");
     int rlen = strlen(rsp);
@@ -65,9 +74,9 @@ bool ATE::write(std::uint32_t adr, std::uint32_t data) {
 
 bool ATE::read(std::uint32_t adr) {
     char buffer[50];
-    sprintf(buffer, "MR 0x%0" PRIx32 "\r\n", adr);
+    sprintf(buffer, "MR 0x%08x\n", adr);
     tn_inst.write(buffer);
-    sleep(0.005);
+    sleep(5);
     const char* rsp;
     rsp = tn_inst.read_until("OK\r\n");
     int rlen = strlen(rsp);
@@ -83,8 +92,8 @@ bool ATE::read(std::uint32_t adr) {
 }
 
 bool ATE::terminate() {
-    tn_inst.write("STOPSIM\r\n");
-    sleep(0.005);
+    tn_inst.write("STOPSIM\n");
+    sleep(1);
     const char* rsp;
     rsp = tn_inst.read_until("OK\r\n");
     int rlen = strlen(rsp);
@@ -103,8 +112,8 @@ bool ATE::terminate() {
 }
 
 bool ATE::close() {
-    tn_inst.write("EXIT\r\n");
-    sleep(0.005);
+    tn_inst.write("EXIT\n");
+    sleep(1);
     const char* rsp;
     rsp = tn_inst.read_some();
     tn_inst.close();
