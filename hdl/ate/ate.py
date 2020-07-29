@@ -76,6 +76,10 @@ class ATE:
         self.wb_syscon = None
         self.slave_inst = None
 
+    def configure_syscon(self, clk, rst):
+        self.clk_o = clk
+        self.rst_o = rst
+
     def configure_gpio(self, gpio_if):
         self.gpio_if = gpio_if
 

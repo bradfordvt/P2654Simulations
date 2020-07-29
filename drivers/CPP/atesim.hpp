@@ -69,6 +69,8 @@ public:
     bool read( );
     std::uint32_t get_value();
     const char* get_error();
+private:
+    ATE& ate_inst;
 };
 
 class JTAGController {
