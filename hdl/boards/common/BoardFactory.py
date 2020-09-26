@@ -2,6 +2,7 @@
 
 """
 from myhdl import *
+
 from hdl.boards.common.BoardGPIOInterface import BoardGPIOInterface
 from hdl.boards.common.BoardI2CInterface import BoardI2CInterface
 from hdl.boards.common.BoardSPIInterface import BoardSPIInterface
@@ -12,6 +13,7 @@ from hdl.boards.spitest.spitest import SPITest
 from hdl.boards.jtagtest.jtagtest import JTAGTest
 from hdl.boards.jtagtest.jtag2test import JTAG2Test
 from hdl.boards.P2654Board1.P2654Board1 import P2654Board1
+from hdl.boards.P2654Board1.P2654Board1_2 import P2654Board1_2
 
 
 class BoardFactory:
@@ -69,9 +71,13 @@ class BoardFactory:
             board.configure_gpio(self.gpio_if)
             board.configure_jtag2(self.jtag2_if)
         elif board_name == "P2654Board1":
-            board = P2654Board1()
+            board = P2654Board1("TOP", "P2654Board1")
             board.configure_gpio(self.gpio_if)
             board.configure_jtag(self.jtag_if)
+        elif board_name == "P2654Board1_2":
+            board = P2654Board1_2("TOP", "P2654Board1_2")
+            board.configure_gpio(self.gpio_if)
+            board.configure_jtag2(self.jtag2_if)
         else:
             board = None
         if board is not None:
