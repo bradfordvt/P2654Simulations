@@ -103,7 +103,7 @@ class P2654Board1(AbstractBoard):
         led6 = Signal(bool(0))
         led7 = Signal(bool(0))
 
-        self.sn74abt8244_device = SN74ABT8244A("TOP", "SN74ABT8245", oe_neg1, Y1, Y2, A1, A2, oe_neg2,
+        self.sn74abt8244_device = SN74ABT8244A("TOP", "SN74ABT8244", oe_neg1, Y1, Y2, A1, A2, oe_neg2,
                                                tdo_padoe_o, self.tdi, self.tck, self.tms, self.tdo)
         # self.sn74abt8244_device.configure_jtag(self.tdi, self.tck, self.tms, self.trst, self.tdo)
         # self.led0_inst = LED("TOP", "LED0", led0)
