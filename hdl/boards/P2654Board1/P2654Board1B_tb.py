@@ -264,7 +264,7 @@ def scan_dr(ate_inst, count, tdi_string):
     return tdo_string
 
 
-def P2654Board1_tb():
+def P2654Board1B_tb():
     gpio_if = BoardGPIOInterface()
     jtag_if = BoardJTAGInterface()
     board_inst = P2654Board1("TOP", "P2654Board1")
@@ -348,7 +348,7 @@ def P2654Board1_tb():
 
 
 def main():
-    P2654Board1_tb()
+    P2654Board1B_tb()
 
 
 if __name__ == '__main__':
