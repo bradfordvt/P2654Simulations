@@ -1,3 +1,5 @@
 myhdl >= 0.11
 Pillow >= 6.0.0
 telnetsrv >= 0.4
+logging >= 0.4.9.6
+Autologging >= 1.3.2

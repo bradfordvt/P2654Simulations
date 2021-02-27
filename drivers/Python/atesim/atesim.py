@@ -2,6 +2,8 @@
 Copyright (c) 2019 Bradford G. Van Treuren
 See the licence file in the top directory
 """
+import logging
+from autologging import traced
 import threading
 from subprocess import Popen, PIPE
 
@@ -15,6 +17,7 @@ simip = "127.0.0.1"
 simport = 5023
 
 
+@traced
 class ATETelnetClient:
     def __init__(self):
         self.timeout = 60
@@ -61,6 +64,7 @@ class ATETelnetClient:
         self.tn_inst.close()
 
 
+@traced
 class ATE:
     def __init__(self, ip="127.0.0.1", port=5023):
         self.tn_inst = None
@@ -176,6 +180,7 @@ class GPIOController:
         return self.ate_inst.get_error()
 
 
+@traced
 class JTAGController:
     def __init__(self, ate_inst):
         self.ate_inst = ate_inst
