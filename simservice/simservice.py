@@ -11,6 +11,7 @@ from telnetsrv.threaded import TelnetHandler
 from telnetsrv.telnetsrvlib import command
 
 import threading
+from time import sleep
 from hdl.ate.ate import ATE
 # from hdl.boards.spitest.spitest import SPITest
 # from hdl.boards.i2ctest.i2ctest import I2CTest
@@ -172,6 +173,26 @@ class SimulatorHandler(TelnetHandler):
     ############################################################################################
     # Administration Commands
     ############################################################################################
+    @command('SIMSTATUS')
+    def command_SIMSTATUS(self, params):
+        '''
+        Report the running status of the simulator.
+        Report the running status of the simulator.
+        SIMSTATUS
+        '''
+        if len(params) != 0:
+            self.writeerror('Invalid number of arguments received.')
+        else:
+            if not self.start_state:
+                self.writeerror('Simulation thread is not running.')
+            else:
+                if self.ate_inst is None:
+                    self.writeresponse("Simulation is STOPPED." + "\nOK")
+                elif self.ate_inst.sim_status():
+                    self.writeresponse("Simulation is RUNNING." + "\nOK")
+                else:
+                    self.writeresponse("Simulation is STOPPED." + "\nOK")
+
     @command('STARTSIM')
     def command_STARTSIM(self, params):
         '''
@@ -193,6 +214,7 @@ class SimulatorHandler(TelnetHandler):
                 self.ate_inst.configure_jtag(self.board_factory.get_jtag_if())
                 self.ate_inst.configure_jtag2(self.board_factory.get_jtag2_if())
                 self.ate_inst.start_simulation()
+                sleep(5)
                 self.start_state = True
                 self.writeresponse("OK")
             else:
