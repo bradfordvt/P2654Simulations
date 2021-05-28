@@ -103,6 +103,12 @@ class ATE:
         x.start()
         sleep(10)
 
+    def sim_status(self):
+        if self.master_inst is None:
+            return False
+        else:
+            return True
+
     def write(self, addr, data):
         while self.master_inst is None:
             print("wb write: master task has not started yet!")
@@ -143,6 +149,7 @@ class ATE:
         tb = self.__rtl()
         tb.config_sim(trace=True)
         tb.run_sim()
+        self.master_inst = None
 
     @block
     def __rtl(self):
