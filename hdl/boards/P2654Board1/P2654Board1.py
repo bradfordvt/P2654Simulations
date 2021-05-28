@@ -44,6 +44,23 @@ class P2654Board1(AbstractBoard):
         # self.tp_o = None
         # self.tp_e = None
 
+        self.width = 4
+        self.Y1 = [TristateSignal(False) for _ in range(self.width)]
+        self.Y2 = [TristateSignal(False) for _ in range(self.width)]
+        self.A1 = [Signal(bool(0)) for _ in range(self.width)]
+        self.A2 = [Signal(bool(0)) for _ in range(self.width)]
+        self.oe_neg1 = Signal(bool(0))
+        self.oe_neg2 = Signal(bool(0))
+        self.tdo_padoe_o = Signal(bool(0))
+        self.led0 = Signal(bool(0))
+        self.led1 = Signal(bool(0))
+        self.led2 = Signal(bool(0))
+        self.led3 = Signal(bool(0))
+        self.led4 = Signal(bool(0))
+        self.led5 = Signal(bool(0))
+        self.led6 = Signal(bool(0))
+        self.led7 = Signal(bool(0))
+
         self.sn74abt8244_device = None
         self.led0_inst = None
         self.led1_inst = None
@@ -86,42 +103,42 @@ class P2654Board1(AbstractBoard):
 
     @block
     def rtl(self):
-        width = 4
-        Y1 = [TristateSignal(False) for _ in range(width)]
-        Y2 = [TristateSignal(False) for _ in range(width)]
-        A1 = [Signal(bool(0)) for _ in range(width)]
-        A2 = [Signal(bool(0)) for _ in range(width)]
-        oe_neg1 = Signal(bool(0))
-        oe_neg2 = Signal(bool(0))
-        tdo_padoe_o = Signal(bool(0))
-        led0 = Signal(bool(0))
-        led1 = Signal(bool(0))
-        led2 = Signal(bool(0))
-        led3 = Signal(bool(0))
-        led4 = Signal(bool(0))
-        led5 = Signal(bool(0))
-        led6 = Signal(bool(0))
-        led7 = Signal(bool(0))
+        # width = 4
+        # Y1 = [TristateSignal(False) for _ in range(width)]
+        # Y2 = [TristateSignal(False) for _ in range(width)]
+        # A1 = [Signal(bool(0)) for _ in range(width)]
+        # A2 = [Signal(bool(0)) for _ in range(width)]
+        # oe_neg1 = Signal(bool(0))
+        # oe_neg2 = Signal(bool(0))
+        # tdo_padoe_o = Signal(bool(0))
+        # led0 = Signal(bool(0))
+        # led1 = Signal(bool(0))
+        # led2 = Signal(bool(0))
+        # led3 = Signal(bool(0))
+        # led4 = Signal(bool(0))
+        # led5 = Signal(bool(0))
+        # led6 = Signal(bool(0))
+        # led7 = Signal(bool(0))
+        self.led0_inst = PseudoLED("TOP", "LED0", self.led0, color="RED")
+        self.led1_inst = PseudoLED("TOP", "LED1", self.led1, color="GREEN")
+        self.led2_inst = PseudoLED("TOP", "LED2", self.led2, color="YELLOW")
+        self.led3_inst = PseudoLED("TOP", "LED3", self.led3, color="ORANGE")
+        self.led4_inst = PseudoLED("TOP", "LED4", self.led4, color="BLUE")
+        self.led5_inst = PseudoLED("TOP", "LED5", self.led5, color="VIOLET")
+        self.led6_inst = PseudoLED("TOP", "LED6", self.led6, color="INDIGO")
+        self.led7_inst = PseudoLED("TOP", "LED7", self.led7, color="WHITE")
 
-        self.sn74abt8244_device = SN74ABT8244A("TOP", "SN74ABT8244", oe_neg1, Y1, Y2, A1, A2, oe_neg2,
-                                               tdo_padoe_o, self.tdi, self.tck, self.tms, self.tdo)
+        self.sn74abt8244_device = SN74ABT8244A("TOP", "SN74ABT8244", self.oe_neg1, self.Y1, self.Y2, self.A1, self.A2,
+                                               self.oe_neg2, self.tdo_padoe_o, self.tdi, self.tck, self.tms, self.tdo)
         # self.sn74abt8244_device.configure_jtag(self.tdi, self.tck, self.tms, self.trst, self.tdo)
-        # self.led0_inst = LED("TOP", "LED0", led0)
-        # self.led1_inst = LED("TOP", "LED1", led1)
-        # self.led2_inst = LED("TOP", "LED2", led2)
-        # self.led3_inst = LED("TOP", "LED3", led3)
-        # self.led4_inst = LED("TOP", "LED4", led4)
-        # self.led5_inst = LED("TOP", "LED5", led5)
-        # self.led6_inst = LED("TOP", "LED6", led6)
-        # self.led7_inst = LED("TOP", "LED7", led7)
-        self.led0_inst = PseudoLED("TOP", "LED0", led0, color="RED")
-        self.led1_inst = PseudoLED("TOP", "LED1", led1, color="GREEN")
-        self.led2_inst = PseudoLED("TOP", "LED2", led2, color="YELLOW")
-        self.led3_inst = PseudoLED("TOP", "LED3", led3, color="ORANGE")
-        self.led4_inst = PseudoLED("TOP", "LED4", led4, color="BLUE")
-        self.led5_inst = PseudoLED("TOP", "LED5", led5, color="VIOLET")
-        self.led6_inst = PseudoLED("TOP", "LED6", led6, color="INDIGO")
-        self.led7_inst = PseudoLED("TOP", "LED7", led7, color="WHITE")
+        # self.led0_inst2 = LED("TOP", "LED0", self.led0)
+        # self.led1_inst2 = LED("TOP", "LED1", self.led1)
+        # self.led2_inst2 = LED("TOP", "LED2", self.led2)
+        # self.led3_inst2 = LED("TOP", "LED3", self.led3)
+        # self.led4_inst2 = LED("TOP", "LED4", self.led4)
+        # self.led5_inst2 = LED("TOP", "LED5", self.led5)
+        # self.led6_inst2 = LED("TOP", "LED6", self.led6)
+        # self.led7_inst2 = LED("TOP", "LED7", self.led7)
 
         self.sn74abt8244_device.configure_jtag(self.tdi, self.tck, self.tms, self.trst, self.tdo)
         print("P2654Board1: self.tdo => ", hex(id(self.tdo)))
@@ -130,65 +147,68 @@ class P2654Board1(AbstractBoard):
         @always_comb
         def netlist():
             # Wire the LED to the buffer
-            if Y1[0].val is None:
-                led0.next = False
+            if self.Y1[0].val is None:
+                self.led0.next = False
                 self.i_gpio.next[0] = False
             else:
-                led0.next = Y1[0]
-                self.i_gpio.next[0] = Y1[0]
-            if Y1[1].val is None:
-                led1.next = False
+                self.led0.next = self.Y1[0]
+                self.i_gpio.next[0] = self.Y1[0]
+            if self.Y1[1].val is None:
+                self.led1.next = False
                 self.i_gpio.next[1] = False
             else:
-                led1.next = Y1[1]
-                self.i_gpio.next[1] = Y1[1]
-            if Y1[2].val is None:
-                led2.next = False
+                self.led1.next = self.Y1[1]
+                self.i_gpio.next[1] = self.Y1[1]
+            if self.Y1[2].val is None:
+                self.led2.next = False
                 self.i_gpio.next[2] = False
             else:
-                led2.next = Y1[2]
-                self.i_gpio.next[2] = Y1[2]
-            if Y1[3].val is None:
-                led3.next = False
+                self.led2.next = self.Y1[2]
+                self.i_gpio.next[2] = self.Y1[2]
+            if self.Y1[3].val is None:
+                self.led3.next = False
                 self.i_gpio.next[3] = False
             else:
-                led3.next = Y1[3]
-                self.i_gpio.next[3] = Y1[3]
-            if Y2[0].val is None:
-                led4.next = False
+                self.led3.next = self.Y1[3]
+                self.i_gpio.next[3] = self.Y1[3]
+            if self.Y2[0].val is None:
+                self.led4.next = False
                 self.i_gpio.next[4] = False
             else:
-                led4.next = Y2[0]
-                self.i_gpio.next[4] = Y2[0]
-            if Y2[1].val is None:
-                led5.next = False
+                self.led4.next = self.Y2[0]
+                self.i_gpio.next[4] = self.Y2[0]
+            if self.Y2[1].val is None:
+                self.led5.next = False
                 self.i_gpio.next[5] = False
             else:
-                led5.next = Y2[1]
-                self.i_gpio.next[5] = Y2[1]
-            if Y2[2].val is None:
-                led6.next = False
+                self.led5.next = self.Y2[1]
+                self.i_gpio.next[5] = self.Y2[1]
+            if self.Y2[2].val is None:
+                self.led6.next = False
                 self.i_gpio.next[6] = False
             else:
-                led6.next = Y2[2]
-                self.i_gpio.next[6] = Y2[2]
-            if Y2[3].val is None:
-                led7.next = False
+                self.led6.next = self.Y2[2]
+                self.i_gpio.next[6] = self.Y2[2]
+            if self.Y2[3].val is None:
+                self.led7.next = False
                 self.i_gpio.next[7] = False
             else:
-                led7.next = Y2[3]
-                self.i_gpio.next[7] = Y2[3]
-            A1[0].next = self.o_gpio[0]
-            A1[1].next = self.o_gpio[1]
-            A1[2].next = self.o_gpio[2]
-            A1[3].next = self.o_gpio[3]
-            A2[0].next = self.o_gpio[4]
-            A2[1].next = self.o_gpio[5]
-            A2[2].next = self.o_gpio[6]
-            A2[3].next = self.o_gpio[7]
+                self.led7.next = self.Y2[3]
+                self.i_gpio.next[7] = self.Y2[3]
+            self.A1[0].next = self.o_gpio[0]
+            self.A1[1].next = self.o_gpio[1]
+            self.A1[2].next = self.o_gpio[2]
+            self.A1[3].next = self.o_gpio[3]
+            self.A2[0].next = self.o_gpio[4]
+            self.A2[1].next = self.o_gpio[5]
+            self.A2[2].next = self.o_gpio[6]
+            self.A2[3].next = self.o_gpio[7]
 
         return netlist, \
                self.led0_inst.rtl(), self.led1_inst.rtl(), self.led2_inst.rtl(), \
                self.led3_inst.rtl(), self.led4_inst.rtl(), self.led5_inst.rtl(), \
                self.led6_inst.rtl(), self.led7_inst.rtl(), \
                self.sn74abt8244_device.rtl()
+# self.led0_inst2.rtl(), self.led1_inst2.rtl(), self.led2_inst2.rtl(), \
+# self.led3_inst2.rtl(), self.led4_inst2.rtl(), self.led5_inst2.rtl(), \
+# self.led6_inst2.rtl(), self.led7_inst2.rtl(), \
