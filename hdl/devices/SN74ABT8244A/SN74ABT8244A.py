@@ -88,7 +88,7 @@ class SN74ABT8244A:
                 else:
                     self.Y2Driver[i].next = None
 
-        core_inst.configure_jtag(self.tdi, self.tck, self.tms, self.tdo)
+        # core_inst.configure_jtag(self.tdi, self.tck, self.tms, self.tdo)
 
         return core_inst.rtl(), output_process
 

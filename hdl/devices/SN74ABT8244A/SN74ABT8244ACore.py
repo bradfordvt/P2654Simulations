@@ -9,7 +9,7 @@ from myhdl import *
 from hdl.devices.SN74ABT8244A.tap.tap_defines import *
 from hdl.devices.SN74ABT8244A.tap.tap_top import *
 from hdl.devices.SN74ABT8244A.registers.bsr import bsr
-
+import os
 
 period = 20  # clk frequency = 50 MHz
 
@@ -118,7 +118,7 @@ class SN74ABT8244ACore:
         bsr_reg = bsr(tdo_o, bsr_select, capture_dr_o, shift_dr_o, update_dr_o, self.tck, bs_chain_tdi_i,
                       extest_select_o, self.OE_NEG1, self.Y1_o, self.Y1_e, self.Y2_o, self.Y2_e,
                       self.A1, self.A2, self.OE_NEG2)
-        tap_inst.configure_jtag(self.tdi, self.tck, self.tms, trst, self.tdo)
+        # tap_inst.configure_jtag(self.tdi, self.tck, self.tms, trst, self.tdo)
         bsr_reg.configure_jtag(tdo_o, self.tck, self.tms, trst, self.tdo)
         print("SN74ABT8244ACore: self.tdo => ", hex(id(self.tdo)))
 
@@ -223,7 +223,7 @@ def convert():
     tdo = Signal(bool(0))
     tms = Signal(bool(0))
     tck = Signal(bool(0))
-    trst = Signal(bool(0))
+    Signal(bool(0))
     dir = Signal(bool(0))
     oe = Signal(bool(0))
     tdo_padoe_o = Signal(bool(0))
