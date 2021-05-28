@@ -5,8 +5,10 @@ See the licence file in the top directory
 
 from myhdl import *
 from time import sleep
-# from asyncio import Queue as pyQueue
-from queue import Queue as pyQueue
+try:
+    from Queue import Queue as pyQueue
+except ImportError:
+    from queue import Queue as pyQueue
 from hdl.common.containers import Queue as myQueue
 from hdl.buses.wishbone.wishbone_if import WB_ADR_WIDTH, WB_DAT_WIDTH
 
@@ -17,7 +19,8 @@ class WishboneMaster:
         self.name = name
         self.wb_interface = wb_interface
         self.monitor = monitor
-        self.Q = myQueue()
+        #c self.Q = myQueue()
+        self.Q = pyQueue()
         self.R = pyQueue()
         self.response = None
         self.localReset = Signal(bool(0))
@@ -94,8 +97,9 @@ class WishboneMaster:
                     yield delay(1)
                     continue
                 yield delay(1)
-                yield self.Q.get()
-                cmd = self.Q.item
+                # yield self.Q.get()
+                # cmd = self.Q.item
+                cmd = self.Q.get()
                 print("cmd = (", cmd[0], " ", hex(cmd[1]), " ",  hex(cmd[2]), ")")
                 if cmd[0] == "reset":
                     self.localReset.next = bool(1)
